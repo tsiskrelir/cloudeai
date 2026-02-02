@@ -474,8 +474,9 @@ export const PATTERNS = {
     'za', 'zh', 'zu',
   ],
 
-  // Common stop words for keyword density
+  // Common stop words for keyword density (English, German, Russian, Georgian, Spanish)
   STOP_WORDS: new Set([
+    // English
     'a', 'an', 'the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of',
     'with', 'by', 'from', 'up', 'about', 'into', 'through', 'during', 'before',
     'after', 'above', 'below', 'between', 'under', 'again', 'further', 'then',
@@ -489,6 +490,45 @@ export const PATTERNS = {
     'yourself', 'yourselves', 'he', 'him', 'his', 'himself', 'she', 'her', 'hers',
     'herself', 'they', 'them', 'their', 'theirs', 'themselves', 'what', 'which', 'who',
     'whom', 'if', 'as',
+    // German
+    'und', 'der', 'die', 'das', 'ist', 'sind', 'haben', 'werden', 'nicht', 'auch',
+    'für', 'mit', 'auf', 'dem', 'des', 'ein', 'eine', 'zu', 'von', 'bei', 'nach',
+    'über', 'vor', 'durch', 'unter', 'gegen', 'ohne', 'seit', 'während', 'wegen',
+    'als', 'wie', 'oder', 'aber', 'wenn', 'weil', 'dass', 'ob', 'bis', 'denn',
+    'doch', 'nur', 'noch', 'schon', 'sehr', 'mehr', 'kann', 'wird', 'wurde', 'waren',
+    'sein', 'seine', 'seiner', 'seinem', 'seinen', 'ihr', 'ihre', 'ihrer', 'ihrem',
+    'sich', 'mich', 'mir', 'dich', 'dir', 'uns', 'euch', 'ihnen', 'ihm', 'wir', 'sie',
+    'ich', 'man', 'hier', 'dort', 'jetzt', 'immer', 'wieder', 'alle', 'alles',
+    // Russian
+    'и', 'в', 'во', 'не', 'что', 'он', 'на', 'я', 'с', 'со', 'как', 'а', 'то',
+    'все', 'она', 'так', 'его', 'но', 'да', 'ты', 'к', 'у', 'же', 'вы', 'за',
+    'бы', 'по', 'только', 'её', 'мне', 'было', 'вот', 'от', 'меня', 'ещё', 'нет',
+    'о', 'из', 'ему', 'теперь', 'когда', 'уже', 'вам', 'ли', 'при', 'был', 'была',
+    'были', 'быть', 'этот', 'эта', 'это', 'эти', 'тот', 'та', 'те', 'для', 'мы',
+    'они', 'их', 'нас', 'наш', 'наша', 'наши', 'ваш', 'ваша', 'ваши', 'свой',
+    'который', 'которая', 'которое', 'которые', 'где', 'кто', 'чем', 'чего',
+    // Georgian
+    'და', 'არის', 'რომ', 'ეს', 'იყო', 'მას', 'თუ', 'ან', 'ის', 'მე', 'შენ',
+    'ჩვენ', 'თქვენ', 'ისინი', 'რა', 'ვინ', 'სად', 'როდის', 'როგორ', 'რატომ',
+    'აქ', 'იქ', 'ახლა', 'მაშინ', 'უკვე', 'ჯერ', 'კიდევ', 'მხოლოდ', 'ძალიან',
+    'ყველა', 'ზოგი', 'თითქოს', 'რადგან', 'მაგრამ', 'თუმცა', 'ამიტომ', 'ასე',
+    'ისე', 'მისი', 'ჩემი', 'შენი', 'ჩვენი', 'თქვენი', 'მათი', 'რომელიც',
+    // Spanish - articles, prepositions, conjunctions, pronouns
+    'el', 'la', 'los', 'las', 'un', 'una', 'unos', 'unas', 'de', 'del', 'al',
+    'que', 'en', 'es', 'por', 'con', 'para', 'como', 'más', 'pero', 'sus', 'le',
+    'ya', 'se', 'no', 'hay', 'fue', 'todo', 'esta', 'ser', 'sobre', 'también',
+    'cuando', 'muy', 'sin', 'hasta', 'desde', 'donde', 'quien', 'entre', 'después',
+    'antes', 'durante', 'hacia', 'contra', 'según', 'lo', 'esto', 'eso', 'ese',
+    'esa', 'este', 'estos', 'estas', 'esos', 'esas', 'aquel', 'aquella', 'aquellos',
+    'aquellas', 'yo', 'tú', 'él', 'ella', 'nosotros', 'nosotras', 'vosotros',
+    'vosotras', 'ellos', 'ellas', 'mi', 'tu', 'su', 'nuestro', 'nuestra', 'vuestro',
+    'vuestra', 'mis', 'tus', 'sus', 'nuestros', 'nuestras', 'vuestros', 'vuestras',
+    'me', 'te', 'nos', 'os', 'les', 'qué', 'cuál', 'cuáles', 'quién', 'quiénes',
+    'cuándo', 'cómo', 'dónde', 'porque', 'aunque', 'sino', 'pues', 'mientras',
+    'si', 'ni', 'tanto', 'así', 'entonces', 'ahora', 'aquí', 'allí', 'siempre',
+    'nunca', 'todavía', 'aún', 'solo', 'sólo', 'cada', 'otro', 'otra', 'otros',
+    'otras', 'alguno', 'alguna', 'algunos', 'algunas', 'ninguno', 'ninguna',
+    'mucho', 'mucha', 'muchos', 'muchas', 'poco', 'poca', 'pocos', 'pocas',
   ]),
 
   // Trust signals patterns
