@@ -17,6 +17,19 @@ export interface FetchResult {
 export type RenderMethod = 'ssr' | 'csr' | 'static' | 'unknown';
 
 /* ============================================================================
+ * SITE TREE
+ * ========================================================================== */
+
+export interface SiteTreeNode {
+  path: string;
+  fullUrl: string;
+  children: SiteTreeNode[];
+  isCurrentPage?: boolean;
+  status?: number;
+  inSitemap?: boolean;
+}
+
+/* ============================================================================
  * AUDIT ISSUES
  * ========================================================================== */
 
@@ -74,6 +87,14 @@ export interface TechnicalData {
     urlCount?: number;
     pageInSitemap?: boolean;
     sitemapCount?: number; // Number of sub-sitemaps in sitemap_index.xml
+  };
+
+  siteTree?: {
+    tree: SiteTreeNode;
+    totalUrls: number;
+    sitemapUrls: string[];
+    currentPagePath: string[];
+    issues: { url: string; issue: string; status?: number }[];
   };
 
   llmsTxt: {
@@ -196,6 +217,8 @@ export interface RedirectLinkItem extends LinkItem {
 export interface BrokenLinkItem extends LinkItem {
   status: number;
   error?: string;
+  reason?: string;  // Why the link is broken
+  htmlTag?: string; // Full HTML tag for display
 }
 
 export interface LinkData {

@@ -836,6 +836,174 @@ export async function validateSitemapUrls(
 }
 
 // --------------------
+// Full Sitemap Scan & Site Tree
+// --------------------
+
+export interface SiteTreeNode {
+  path: string;
+  fullUrl: string;
+  children: SiteTreeNode[];
+  isCurrentPage?: boolean;
+  status?: number;
+  inSitemap?: boolean;
+}
+
+export async function buildSiteTree(
+  baseUrl: string,
+  currentPageUrl: string,
+  maxUrls = 100
+): Promise<{
+  tree: SiteTreeNode;
+  totalUrls: number;
+  sitemapUrls: string[];
+  currentPagePath: string[];
+  issues: { url: string; issue: string; status?: number }[];
+}> {
+  const issues: { url: string; issue: string; status?: number }[] = [];
+  const sitemapUrls: string[] = [];
+
+  try {
+    const parsed = new URL(baseUrl);
+    const rootPath = parsed.hostname;
+
+    // Create root node
+    const root: SiteTreeNode = {
+      path: '/',
+      fullUrl: `${parsed.protocol}//${parsed.host}/`,
+      children: []
+    };
+
+    // Fetch sitemap
+    const sitemapLocations = [
+      new URL('/sitemap.xml', baseUrl).href,
+      new URL('/sitemap_index.xml', baseUrl).href,
+    ];
+
+    let allUrls: string[] = [];
+
+    for (const sitemapUrl of sitemapLocations) {
+      try {
+        const res = await requestUrl({ url: sitemapUrl, timeout: 15000, readBody: true });
+        if (res.status === 200 && res.body) {
+          // Check if it's a sitemap index
+          if (res.body.includes('<sitemapindex')) {
+            const childSitemapMatches = res.body.match(/<loc>([^<]+)<\/loc>/g) || [];
+            const childSitemaps = childSitemapMatches.map(m => m.replace(/<\/?loc>/g, '')).slice(0, 10);
+
+            for (const childUrl of childSitemaps) {
+              try {
+                const childRes = await requestUrl({ url: childUrl, timeout: 10000, readBody: true });
+                if (childRes.status === 200 && childRes.body) {
+                  const urlMatches = childRes.body.match(/<loc>([^<]+)<\/loc>/g) || [];
+                  const urls = urlMatches.map(m => m.replace(/<\/?loc>/g, ''));
+                  allUrls.push(...urls);
+                }
+              } catch {
+                continue;
+              }
+            }
+          } else if (res.body.includes('<urlset')) {
+            const urlMatches = res.body.match(/<loc>([^<]+)<\/loc>/g) || [];
+            allUrls = urlMatches.map(m => m.replace(/<\/?loc>/g, ''));
+          }
+
+          if (allUrls.length > 0) break;
+        }
+      } catch {
+        continue;
+      }
+    }
+
+    // Limit URLs and store
+    allUrls = [...new Set(allUrls)].slice(0, maxUrls);
+    sitemapUrls.push(...allUrls);
+
+    // Build tree structure from URLs
+    const normalizedCurrentPage = currentPageUrl.toLowerCase().replace(/\/$/, '');
+
+    for (const url of allUrls) {
+      try {
+        const urlParsed = new URL(url);
+        if (urlParsed.hostname !== parsed.hostname) continue;
+
+        const pathParts = urlParsed.pathname.split('/').filter(p => p);
+        let currentNode = root;
+
+        for (let i = 0; i < pathParts.length; i++) {
+          const part = pathParts[i];
+          let childNode = currentNode.children.find(c => c.path === part);
+
+          if (!childNode) {
+            const fullPath = '/' + pathParts.slice(0, i + 1).join('/');
+            childNode = {
+              path: part,
+              fullUrl: `${parsed.protocol}//${parsed.hostname}${fullPath}`,
+              children: [],
+              inSitemap: true
+            };
+            currentNode.children.push(childNode);
+          }
+
+          // Mark if this is the current page
+          if (childNode.fullUrl.toLowerCase().replace(/\/$/, '') === normalizedCurrentPage) {
+            childNode.isCurrentPage = true;
+          }
+
+          currentNode = childNode;
+        }
+      } catch {
+        continue;
+      }
+    }
+
+    // Sort children alphabetically at each level
+    const sortTree = (node: SiteTreeNode) => {
+      node.children.sort((a, b) => a.path.localeCompare(b.path));
+      node.children.forEach(sortTree);
+    };
+    sortTree(root);
+
+    // Find path to current page
+    const currentPagePath: string[] = [];
+    const findCurrentPagePath = (node: SiteTreeNode, path: string[]): boolean => {
+      if (node.isCurrentPage) {
+        currentPagePath.push(...path, node.path);
+        return true;
+      }
+      for (const child of node.children) {
+        if (findCurrentPagePath(child, [...path, node.path])) return true;
+      }
+      return false;
+    };
+    findCurrentPagePath(root, []);
+
+    // Check if current page is in sitemap
+    const currentPageInSitemap = sitemapUrls.some(
+      u => u.toLowerCase().replace(/\/$/, '') === normalizedCurrentPage
+    );
+    if (!currentPageInSitemap && currentPageUrl !== baseUrl) {
+      issues.push({ url: currentPageUrl, issue: 'Current page not found in sitemap' });
+    }
+
+    return {
+      tree: root,
+      totalUrls: sitemapUrls.length,
+      sitemapUrls,
+      currentPagePath,
+      issues
+    };
+  } catch {
+    return {
+      tree: { path: '/', fullUrl: baseUrl, children: [] },
+      totalUrls: 0,
+      sitemapUrls: [],
+      currentPagePath: [],
+      issues
+    };
+  }
+}
+
+// --------------------
 // URL SEO Friendliness Check
 // --------------------
 

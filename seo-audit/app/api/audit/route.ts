@@ -17,7 +17,8 @@ import {
   checkWwwRedirect,
   checkHttpsRedirect,
   validateSitemapUrls,
-  analyzeUrlSeoFriendliness
+  analyzeUrlSeoFriendliness,
+  buildSiteTree
 } from '@/lib/fetch/fetchHtml';
 
 // Rate limiting
@@ -93,8 +94,14 @@ export async function POST(request: NextRequest) {
         result.technical.sitemap = { ...sitemap, urlCount: sitemap.urlCount };
         result.technical.llmsTxt = { found: llmsTxt.found, mentioned: result.technical.llmsTxt?.mentioned || false, content: llmsTxt.content };
 
-        // llms.txt issue - only add after actual check
-        if (!llmsTxt.found && !result.technical.llmsTxt?.mentioned) {
+        // llms.txt - update passed array and add issue only after actual check
+        if (llmsTxt.found) {
+          // Add to passed if not already there
+          if (!result.passed.includes('llms.txt ✓')) {
+            result.passed.push('llms.txt ✓');
+          }
+        } else if (!result.technical.llmsTxt?.mentioned) {
+          // Only show issue if llms.txt not found AND not mentioned in HTML
           result.issues.push({
             id: 'no-llms-txt',
             severity: 'low' as const,
@@ -383,6 +390,27 @@ export async function POST(request: NextRequest) {
             fixGe: 'წაშალეთ 404 URL-ები sitemap-იდან ან აღადგინეთ გვერდები',
             details: `მაღალი პრიორიტეტი. Sitemap-ში გატეხილი URL-ები:\n${sitemapValidation.notFound.slice(0, 5).map(r => `• ${r.url} → ${r.status}`).join('\n')}`
           });
+        }
+
+        // Build site tree from sitemap
+        const siteTree = await buildSiteTree(base, finalUrl, 100);
+        result.technical.siteTree = siteTree;
+
+        // Add site tree issues
+        if (siteTree.issues.length > 0) {
+          for (const treeIssue of siteTree.issues) {
+            result.issues.push({
+              id: 'site-tree-issue',
+              severity: 'medium' as const,
+              category: 'Site Structure',
+              issue: treeIssue.issue,
+              issueGe: treeIssue.issue,
+              location: treeIssue.url,
+              fix: 'Add page to sitemap or check site structure',
+              fixGe: 'დაამატეთ გვერდი sitemap-ში ან შეამოწმეთ საიტის სტრუქტურა',
+              details: `საშუალო პრიორიტეტი. ${treeIssue.issue}`
+            });
+          }
         }
 
       } catch {}

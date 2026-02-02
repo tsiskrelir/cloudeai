@@ -32,7 +32,7 @@ interface AuditResult {
   technical: { title: { value: string; length: number; isOptimal: boolean }; metaDesc: { value: string; length: number; isOptimal: boolean }; canonical: { href: string | null; count: number; isCrossDomain: boolean }; robots: { meta: string | null; hasNoindex: boolean; hasNofollow: boolean }; robotsTxt: { found: boolean; content: string | null; blocksAll: boolean; hasSitemap: boolean }; sitemap: { found: boolean; url: string | null }; llmsTxt: { found: boolean; mentioned: boolean }; language: string | null; charset: string | null; viewport: { content: string | null; isMobileOptimized: boolean }; favicon: boolean; appleTouchIcon: boolean; manifestJson: boolean; themeColor: string | null; };
   international: { hreflangs: HreflangTag[]; hasXDefault: boolean; hasSelfReference: boolean; canonicalInHreflang: boolean; langMatchesHreflang: boolean; issues: string[]; };
   content: { headings: { h1: string[]; h2: string[]; h3: string[]; h4: string[]; h5: string[]; h6: string[] }; wordCount: number; characterCount: number; sentenceCount: number; paragraphCount: number; readingTime: number; titleH1Duplicate: boolean; duplicateParagraphs: number; aiScore: number; aiPhrases: string[]; readability: ReadabilityData; keywordDensity: KeywordDensity[]; };
-  links: { total: number; internal: number; external: number; broken: number; brokenList: { href: string; text: string }[]; genericAnchors: number; genericAnchorsList: { text: string; href: string }[]; nofollow: number; sponsored: number; ugc: number; unsafeExternalCount: number; hasFooterLinks: boolean; hasNavLinks: boolean; };
+  links: { total: number; internal: number; external: number; broken: number; brokenList: { href: string; text: string; reason?: string; htmlTag?: string }[]; genericAnchors: number; genericAnchorsList: { text: string; href: string }[]; nofollow: number; sponsored: number; ugc: number; unsafeExternalCount: number; hasFooterLinks: boolean; hasNavLinks: boolean; };
   images: { total: number; withoutAlt: number; withEmptyAlt: number; withoutDimensions: number; lazyLoaded: number; lazyAboveFold: number; clickableWithoutAlt: number; decorativeCount: number; largeImages: number; modernFormats: number; srcsetCount: number; };
   schema: { count: number; types: string[]; valid: number; invalid: number; details: SchemaItem[]; missingContext: number; hasWebSiteSearch: boolean; hasBreadcrumb: boolean; hasOrganization: boolean; hasFAQ: boolean; hasHowTo: boolean; };
   social: { og: { title: string | null; description: string | null; image: string | null; url: string | null; type: string | null; siteName: string | null; locale: string | null }; twitter: { card: string | null; site: string | null; creator: string | null; title: string | null; description: string | null; image: string | null }; isComplete: boolean; hasArticleTags: boolean; };
@@ -214,12 +214,12 @@ export default function SEOChecker() {
   );
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+    <div className="min-h-screen" style={{background: 'linear-gradient(135deg, #11225c 0%, #1a3380 50%, #11225c 100%)'}}>
     {/* Header */}
-    <div className="bg-gradient-to-r from-emerald-600 to-teal-600 text-white">
+    <div style={{background: 'linear-gradient(90deg, #11225c 0%, #1a3d8a 50%, #2a4a9a 100%)'}} className="text-white">
     <div className="max-w-6xl mx-auto px-6 py-8">
-    <h1 className="text-3xl font-bold">SEO აუდიტი</h1>
-    <p className="text-emerald-100 mt-1">ვებგვერდის SEO ანალიზი • {results ? `${results.summary.totalChecks} შემოწმება შესრულდა` : '75+ შემოწმება'}</p>
+    <h1 className="text-3xl font-bold" style={{color: '#99ff00'}}>SEO აუდიტი</h1>
+    <p style={{color: '#00ccff'}} className="mt-1">ვებგვერდის SEO ანალიზი • {results ? `${results.summary.totalChecks} შემოწმება შესრულდა` : '75+ შემოწმება'}</p>
     </div>
     </div>
 
@@ -227,33 +227,33 @@ export default function SEOChecker() {
     {/* Input */}
     <div className="bg-white rounded-2xl shadow-xl p-6 mb-8">
     <div className="flex gap-3 mb-5">
-    <button onClick={() => { setInputMode('url'); setResults(null); setError(''); }} className={`px-5 py-2.5 rounded-lg font-medium flex items-center gap-2 ${inputMode === 'url' ? 'bg-emerald-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}><Icons.Globe /> URL-ით</button>
-    <button onClick={() => { setInputMode('html'); setResults(null); setError(''); }} className={`px-5 py-2.5 rounded-lg font-medium flex items-center gap-2 ${inputMode === 'html' ? 'bg-emerald-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}><Icons.Code /> HTML ჩასმა</button>
+    <button onClick={() => { setInputMode('url'); setResults(null); setError(''); }} className={`px-5 py-2.5 rounded-lg font-medium flex items-center gap-2 transition-all`} style={inputMode === 'url' ? {backgroundColor: '#11225c', color: '#99ff00'} : {backgroundColor: '#f3f4f6', color: '#4b5563'}}><Icons.Globe /> URL-ით</button>
+    <button onClick={() => { setInputMode('html'); setResults(null); setError(''); }} className={`px-5 py-2.5 rounded-lg font-medium flex items-center gap-2 transition-all`} style={inputMode === 'html' ? {backgroundColor: '#11225c', color: '#99ff00'} : {backgroundColor: '#f3f4f6', color: '#4b5563'}}><Icons.Code /> HTML ჩასმა</button>
     </div>
 
     {inputMode === 'url' ? (
       <div>
       <div className="flex gap-3">
       <div className="flex-1 relative">
-      <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"><Icons.Globe /></div>
-      <input type="text" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://example.com" className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:border-emerald-500 outline-none" onKeyDown={(e) => e.key === 'Enter' && handleAnalyze()} />
+      <div className="absolute left-4 top-1/2 -translate-y-1/2" style={{color: '#00ccff'}}><Icons.Globe /></div>
+      <input type="text" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://example.com" className="w-full pl-12 pr-4 py-3 border-2 rounded-xl outline-none" style={{borderColor: '#11225c'}} onKeyDown={(e) => e.key === 'Enter' && handleAnalyze()} />
       </div>
-      <button onClick={handleAnalyze} disabled={loading || !url} className="px-8 py-3 bg-emerald-600 text-white font-semibold rounded-xl hover:bg-emerald-700 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center gap-2">{loading ? <Icons.Loader /> : <Icons.Search />} ანალიზი</button>
+      <button onClick={handleAnalyze} disabled={loading || !url} className="px-8 py-3 font-semibold rounded-xl disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center gap-2 transition-all hover:opacity-90" style={{backgroundColor: '#99ff00', color: '#11225c'}}>{loading ? <Icons.Loader /> : <Icons.Search />} ანალიზი</button>
       </div>
-      <p className="text-sm text-gray-500 mt-3">💡 თუ საიტი დაცულია Cloudflare-ით, გამოიყენეთ &quot;HTML ჩასმა&quot; რეჟიმი</p>
+      <p className="text-sm mt-3" style={{color: '#666'}}>💡 თუ საიტი დაცულია Cloudflare-ით, გამოიყენეთ &quot;HTML ჩასმა&quot; რეჟიმი</p>
       </div>
     ) : (
       <div onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }} onDragLeave={() => setIsDragging(false)} onDrop={handleDrop}>
       <div className="flex gap-3 mb-3">
       <div className="flex-1 relative">
       <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"><Icons.Globe /></div>
-      <input type="text" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="URL (არასავალდებულო)" className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:border-emerald-500 outline-none" />
+      <input type="text" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="URL (არასავალდებულო)" className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl outline-none" style={{borderColor: url ? '#11225c' : undefined}} />
       </div>
       </div>
-      <textarea value={htmlInput} onChange={(e) => setHtmlInput(e.target.value)} placeholder={`ჩასვით HTML კოდი აქ...\n\nროგორ მივიღოთ HTML:\n1. გახსენით გვერდი ბრაუზერში\n2. დააჭირეთ Ctrl+U (Windows) ან Cmd+Option+U (Mac)\n3. აირჩიეთ ყველა (Ctrl+A) და დააკოპირეთ (Ctrl+C)\n4. ჩასვით აქ\n\n💡 ან გადმოიტანეთ HTML ფაილი აქ`} className={`w-full h-48 px-4 py-3 border-2 rounded-xl font-mono text-sm resize-none ${isDragging ? 'border-emerald-500 bg-emerald-50 border-dashed' : 'border-gray-200'}`} />
+      <textarea value={htmlInput} onChange={(e) => setHtmlInput(e.target.value)} placeholder={`ჩასვით HTML კოდი აქ...\n\nროგორ მივიღოთ HTML:\n1. გახსენით გვერდი ბრაუზერში\n2. დააჭირეთ Ctrl+U (Windows) ან Cmd+Option+U (Mac)\n3. აირჩიეთ ყველა (Ctrl+A) და დააკოპირეთ (Ctrl+C)\n4. ჩასვით აქ\n\n💡 ან გადმოიტანეთ HTML ფაილი აქ`} className={`w-full h-48 px-4 py-3 border-2 rounded-xl font-mono text-sm resize-none ${isDragging ? 'border-dashed' : 'border-gray-200'}`} style={isDragging ? {borderColor: '#00ccff', backgroundColor: 'rgba(0, 204, 255, 0.1)'} : {}} />
       <div className="flex justify-between items-center mt-4">
       <span className="text-sm text-gray-500">{htmlInput ? `${htmlInput.length.toLocaleString()} სიმბოლო` : ''}</span>
-      <button onClick={handleAnalyze} disabled={loading || !htmlInput} className="px-8 py-3 bg-emerald-600 text-white font-semibold rounded-xl hover:bg-emerald-700 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center gap-2">{loading ? <Icons.Loader /> : <Icons.Search />} ანალიზი</button>
+      <button onClick={handleAnalyze} disabled={loading || !htmlInput} className="px-8 py-3 font-semibold rounded-xl disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center gap-2 transition-all hover:opacity-90" style={{backgroundColor: '#99ff00', color: '#11225c'}}>{loading ? <Icons.Loader /> : <Icons.Search />} ანალიზი</button>
       </div>
       </div>
     )}
@@ -343,15 +343,25 @@ export default function SEOChecker() {
         {issue.current && <div className="text-xs mt-1 opacity-70 truncate max-w-md">მიმდინარე: {issue.current}</div>}
         {issue.details && <div className="text-xs mt-1 opacity-70">{issue.details}</div>}
 
-        {/* Show broken links list */}
+        {/* Show broken links list with full HTML and reason */}
         {issue.id === 'broken-links' && results.links.brokenList && results.links.brokenList.length > 0 && (
-          <div className="mt-2 p-2 bg-white/30 rounded text-xs space-y-1">
+          <div className="mt-2 p-2 bg-white/30 rounded text-xs space-y-2">
           <div className="font-medium">გატეხილი ბმულები:</div>
-          {results.links.brokenList.map((link: {href: string; text: string}, j: number) => (
-            <div key={j} className="flex gap-2 items-center">
-            <span className="text-red-600">•</span>
-            <code className="bg-white/50 px-1 rounded truncate max-w-xs">{link.href}</code>
-            {link.text && <span className="opacity-60 truncate">({link.text})</span>}
+          {results.links.brokenList.map((link: {href: string; text: string; reason?: string; htmlTag?: string}, j: number) => (
+            <div key={j} className="space-y-1 p-2 bg-white/40 rounded border-l-2 border-red-500">
+              <code className="block bg-gray-800 text-green-400 p-2 rounded text-xs overflow-x-auto whitespace-pre">
+                {link.htmlTag || `<a href="${link.href}">${link.text || '(no text)'}</a>`}
+              </code>
+              {link.reason && (
+                <div className="text-red-700 font-medium">⚠️ {link.reason}</div>
+              )}
+              <div className="text-gray-600 text-xs">
+                <strong>რეკომენდაცია:</strong> {
+                  link.href === '""' || link.href === '' ? 'დაამატეთ სწორი URL ან გამოიყენეთ <button> ინტერაქციული ელემენტისთვის' :
+                  link.href?.startsWith('javascript:') ? 'გამოიყენეთ <button> JavaScript-ის ნაცვლად - ეს უკეთესია SEO-სთვის და ხელმისაწვდომობისთვის' :
+                  'გაასწორეთ ან წაშალეთ ეს ბმული'
+                }
+              </div>
             </div>
           ))}
           </div>
