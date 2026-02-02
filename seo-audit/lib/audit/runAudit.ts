@@ -96,7 +96,15 @@ function detectLanguage(text: string): 'ka' | 'ru' | 'de' | 'en' | 'es' {
 
   // Count German-specific characters and common German words
   const germanUmlauts = (sample.match(/[äöüÄÖÜß]/g) || []).length;
-  const germanWords = (sampleLower.match(/\b(und|der|die|das|ist|sind|haben|werden|nicht|auch|für|mit|auf|dem|des|ein|eine|zu|von|bei|nach|über|vor|durch|unter|gegen|ohne|seit|während|wegen)\b/g) || []).length;
+  // Expanded German word list including legal/administrative terms common in German websites
+  const germanWords = (sampleLower.match(/\b(und|der|die|das|ist|sind|haben|werden|nicht|auch|für|mit|auf|dem|des|ein|eine|einer|einem|einen|zu|von|bei|nach|über|vor|durch|unter|gegen|ohne|seit|während|wegen|zur|zum|im|am|vom|beim|ans|ins|aufs|fürs|ums|wird|wurde|wurden|kann|können|muss|müssen|soll|sollte|darf|wenn|dass|weil|oder|aber|doch|noch|schon|nur|sehr|mehr|viel|alle|dieser|diese|dieses|welche|welcher|jetzt|heute|hier|dort|immer|wieder|sowie|jedoch|damit|dabei|dadurch|dafür|dagegen|daher|darum|schneller|neuer|berlin|verpflichtet|rechtsanwalt|kanzlei|gericht|urteil|bescheid|antrag|verfahren|humanitäre|aufnahme|visum|visa)\b/g) || []).length;
+
+  // Detect German compound words (long words 10+ chars with German patterns)
+  const words = sampleLower.match(/\b[a-zäöüß]{10,}\b/g) || [];
+  const germanCompoundWords = words.filter(word => {
+    // German compound word suffixes
+    return /(?:ung|heit|keit|schaft|tum|nis|lich|bar|sam|haft|los|voll|reich|mäßig|recht|gesetz|erklärung|bescheid|gericht|anwalt|kanzlei|verfahren|entscheidung|regelung|bestimmung|genehmigung|zulassung|aufnahme|einreise|aufenthalts?)$/i.test(word);
+  }).length;
 
   // Count Spanish-specific characters and common Spanish words
   const spanishChars = (sample.match(/[ñÑ¿¡áéíóúÁÉÍÓÚü]/g) || []).length;
@@ -114,8 +122,13 @@ function detectLanguage(text: string): 'ka' | 'ru' | 'de' | 'en' | 'es' {
   // Russian/Cyrillic
   if (cyrillicChars > total * 0.3) return 'ru';
 
-  // German detection: umlauts OR common German words
-  if (germanUmlauts > 3 || germanWords > 5) return 'de';
+  // German detection: improved for short texts (titles) and compound words
+  // For short texts (<200 chars like titles): lower thresholds
+  const isShortText = sample.length < 200;
+  const germanUmlautThreshold = isShortText ? 1 : 3;
+  const germanWordThreshold = isShortText ? 2 : 5;
+
+  if (germanUmlauts >= germanUmlautThreshold || germanWords >= germanWordThreshold || germanCompoundWords >= 1) return 'de';
 
   // Spanish detection: Spanish chars OR common Spanish words
   if (spanishChars > 3 || spanishWords > 8) return 'es';
@@ -394,13 +407,27 @@ function analyzeTechnical(doc: Document, sourceUrl: string, htmlLower: string, o
 // INTERNATIONAL (HREFLANG)
 // ============================================
 
+// Normalize URL for comparison: lowercase, remove trailing slash, normalize percent-encoding
+function normalizeUrlForComparison(url: string | null | undefined): string {
+  if (!url) return '';
+  try {
+    // Decode and re-encode to normalize percent-encoding (e.g., %c2 vs %C2)
+    const decoded = decodeURIComponent(url);
+    // Re-encode but keep it lowercase for comparison
+    return encodeURI(decoded).toLowerCase().replace(/\/$/, '');
+  } catch {
+    // If decoding fails, just lowercase and remove trailing slash
+    return url.toLowerCase().replace(/\/$/, '');
+  }
+}
+
 function analyzeInternational(doc: Document, sourceUrl: string, canonicalHref: string | null, htmlLang: string | null) {
   const hreflangs: HreflangTag[] = Array.from(doc.querySelectorAll('link[rel="alternate"][hreflang]')).map((link) => ({ hreflang: link.getAttribute('hreflang') || '', href: link.getAttribute('href') || '' }));
   const hasXDefault = hreflangs.some((h) => h.hreflang === 'x-default');
-  const sourceUrlNormalized = sourceUrl?.toLowerCase().replace(/\/$/, '') || '';
-  const hasSelfReference = hreflangs.some((h) => h.href?.toLowerCase().replace(/\/$/, '') === sourceUrlNormalized);
-  const canonicalNormalized = canonicalHref?.toLowerCase().replace(/\/$/, '') || '';
-  const canonicalInHreflang = !canonicalHref || hreflangs.some((h) => h.href?.toLowerCase().replace(/\/$/, '') === canonicalNormalized);
+  const sourceUrlNormalized = normalizeUrlForComparison(sourceUrl);
+  const hasSelfReference = hreflangs.some((h) => normalizeUrlForComparison(h.href) === sourceUrlNormalized);
+  const canonicalNormalized = normalizeUrlForComparison(canonicalHref);
+  const canonicalInHreflang = !canonicalHref || hreflangs.some((h) => normalizeUrlForComparison(h.href) === canonicalNormalized);
 
   let langMatchesHreflang = true;
   if (htmlLang && hreflangs.length > 0) {
@@ -420,7 +447,7 @@ function analyzeInternational(doc: Document, sourceUrl: string, canonicalHref: s
 
     // Normalize to base language (de-DE -> de, en-US -> en)
     const baseLang = h.hreflang.toLowerCase().split('-')[0];
-    const normalizedUrl = h.href.toLowerCase().replace(/\/$/, '');
+    const normalizedUrl = normalizeUrlForComparison(h.href);
     const existing = seenLangs.get(baseLang);
 
     if (existing) {
@@ -651,17 +678,28 @@ function analyzeLinks(doc: Document, sourceUrl: string) {
   } catch {}
 
   let internal = 0, external = 0, broken = 0, genericAnchors = 0, nofollow = 0, sponsored = 0, ugc = 0, unsafeExternalCount = 0;
-  const brokenList: { href: string; text: string; status: number }[] = [];
+  const brokenList: { href: string; text: string; status: number; reason: string; htmlTag: string }[] = [];
   const genericAnchorsList: { text: string; href: string }[] = [];
   const internalUrls: { href: string; text: string }[] = []; // For redirect checking
   const externalUrls: { href: string; text: string }[] = []; // For 404 checking
 
   links.forEach((a) => {
     const href = a.getAttribute('href') || '';
-    const text = a.textContent?.trim().toLowerCase() || '';
+    const text = a.textContent?.trim() || '';
+    const textLower = text.toLowerCase();
     const rel = a.getAttribute('rel') || '';
 
-    if (PATTERNS.EMPTY_HREFS.includes(href)) { broken++; brokenList.push({ href: href || '(empty)', text: text.substring(0, 50), status: 0 }); }
+    // Check for empty/invalid hrefs (but NOT anchor links starting with #)
+    if (PATTERNS.EMPTY_HREFS.includes(href)) {
+      broken++;
+      const reason = href === '' ? 'Empty href attribute' :
+                     href.startsWith('javascript:') ? 'JavaScript void link (not crawlable)' :
+                     href === 'about:blank' ? 'about:blank is not a valid link' : 'Invalid href';
+      const displayText = text.substring(0, 60) || '(no text)';
+      const displayHref = href === '' ? '""' : href;
+      const htmlTag = `<a href="${displayHref}">${displayText}</a>`;
+      brokenList.push({ href: displayHref, text: displayText, status: 0, reason, htmlTag });
+    }
 
     // Track internal vs external and collect full internal URLs
     let isInternal = false;
@@ -695,7 +733,7 @@ function analyzeLinks(doc: Document, sourceUrl: string) {
       }
     }
 
-    if (PATTERNS.GENERIC_ANCHORS.includes(text)) { genericAnchors++; genericAnchorsList.push({ text, href: href.substring(0, 50) }); }
+    if (PATTERNS.GENERIC_ANCHORS.includes(textLower)) { genericAnchors++; genericAnchorsList.push({ text: textLower, href: href.substring(0, 50) }); }
     if (rel.includes('nofollow')) nofollow++;
     if (rel.includes('sponsored')) sponsored++;
     if (rel.includes('ugc')) ugc++;
@@ -1633,10 +1671,11 @@ function collectIssues(data: any): AuditIssue[] {
   }
   if (images.lazyAboveFold > 0) issues.push({ id: 'lazy-above-fold', severity: 'medium', category: 'Performance', issue: `${images.lazyAboveFold} above-fold image(s) with lazy loading`, issueGe: `${images.lazyAboveFold} above-fold image(s) with lazy loading`, location: '<img loading="lazy">', fix: 'Remove lazy loading from above-fold images', fixGe: 'Remove lazy loading from above-fold images', details: `${SEVERITY_PHRASES.medium} First 1-3 images (above-fold) should not be lazy-loaded as this slows LCP (Largest Contentful Paint).` });
 
-  // Links - Show full HTML tags with href and anchor text
+  // Links - Show full HTML tags with href, anchor text, and specific issues
   if (links.broken > 0) {
-    const linkExamples = links.brokenList?.slice(0, 3).map((l: any) => `<a href="${l.href}">${l.text || '(empty)'}</a>`).join(' ') || '<a href="">';
-    issues.push({ id: 'broken-links', severity: 'high', category: 'Links', issue: `${links.broken} empty/invalid link(s) found`, issueGe: `${links.broken} empty/invalid link(s) found`, location: linkExamples, fix: 'Add valid href URLs or remove links', fixGe: 'Add valid href URLs or remove links', details: `${SEVERITY_PHRASES.high} Problematic links found. Empty href or javascript:void(0) damages UX and SEO.` });
+    const linkExamples = links.brokenList?.slice(0, 3).map((l: any) => l.htmlTag || `<a href="${l.href}">${l.text}</a>`).join('\n') || '<a href="">';
+    const brokenDetails = links.brokenList?.slice(0, 5).map((l: any) => `• ${l.htmlTag || `<a href="${l.href}">${l.text}</a>`}\n  Issue: ${l.reason || 'Invalid href'}`).join('\n') || 'Empty href attributes found';
+    issues.push({ id: 'broken-links', severity: 'high', category: 'Links', issue: `${links.broken} empty/invalid link(s) found`, issueGe: `${links.broken} empty/invalid link(s) found`, location: linkExamples, fix: 'Add valid href URLs or remove links. For navigation elements, use <button> instead of <a> with empty href.', fixGe: 'Add valid href URLs or remove links. For navigation elements, use <button> instead of <a> with empty href.', details: `${SEVERITY_PHRASES.high} Problematic links found:\n${brokenDetails}\n\nRecommendations:\n• Empty href="" - Add a valid URL or use <button> for actions\n• javascript:void(0) - Use <button> with event handlers instead\n• about:blank - Remove or replace with valid URL` });
   }
   if (links.genericAnchors > 0) {
     const genericExamples = links.genericAnchorsList?.slice(0, 3).map((l: any) => `<a href="${l.href?.substring(0, 40)}">${l.text}</a>`).join(' ') || '<a>click here</a>';
