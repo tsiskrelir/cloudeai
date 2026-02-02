@@ -94,6 +94,29 @@ export interface TechnicalData {
   appleTouchIcon: boolean;
   manifestJson: boolean;
   themeColor: string | null;
+
+  // Site-wide checks (populated by API)
+  wwwRedirect?: {
+    wwwRedirectsToNonWww: boolean;
+    nonWwwRedirectsToWww: boolean;
+    bothAccessible: boolean;
+    preferredVersion: 'www' | 'non-www' | 'unknown';
+    issue?: string;
+  };
+
+  httpsRedirect?: {
+    httpRedirectsToHttps: boolean;
+    httpsAccessible: boolean;
+    httpAccessible: boolean;
+    issue?: string;
+  };
+
+  sitemapValidation?: {
+    checked: number;
+    redirects: { url: string; status: number; location: string }[];
+    notFound: { url: string; status: number }[];
+    errors: { url: string; error: string }[];
+  };
 }
 
 /* ============================================================================
@@ -604,6 +627,20 @@ export interface UrlStructureData {
   hasTrailingSlash: boolean;
   hasFileExtension: boolean;
   issues: string[];
+  // SEO friendliness analysis
+  seoScore?: number;
+  seoIssues?: { issue: string; severity: 'high' | 'medium' | 'low'; recommendation: string }[];
+  details?: {
+    length: number;
+    hasUnderscores: boolean;
+    hasUppercase: boolean;
+    hasSpecialChars: boolean;
+    hasNumbers: boolean;
+    depth: number;
+    hasFileExtension: boolean;
+    hasDuplicateSlashes: boolean;
+    hasTrailingSlash: boolean;
+  };
 }
 
 /* ============================================================================

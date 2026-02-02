@@ -1622,8 +1622,8 @@ function collectIssues(data: any): AuditIssue[] {
   // Robots
   if (technical.robots.hasNoindex) issues.push({ id: 'noindex', severity: 'critical', category: 'Technical', issue: 'Page blocked from indexing (noindex)', issueGe: 'Page blocked from indexing (noindex)', location: `<meta name="robots" content="${technical.robots.meta}">`, fix: 'Remove noindex if page should be indexed', fixGe: 'Remove noindex if page should be indexed', details: `${SEVERITY_PHRASES.critical} noindex meta tag blocks page indexing in Google. Page will not appear in search results!` });
 
-  // llms.txt
-  if (!technical.llmsTxt.found && !technical.llmsTxt.mentioned) issues.push({ id: 'no-llms-txt', severity: 'low', category: 'AI', issue: 'No llms.txt file found', issueGe: 'No llms.txt file found', location: '/llms.txt', fix: 'Create llms.txt for AI crawler guidance', fixGe: 'Create llms.txt for AI crawler guidance', details: `${SEVERITY_PHRASES.low} llms.txt is a new standard for AI crawlers (ChatGPT, Claude, etc.). Adding it helps AI systems better understand your site.` });
+  // llms.txt - NOTE: This check is now done in the API route after actual fetch
+  // The issue is added there to avoid false positives when llms.txt exists but wasn't fetched yet
 
   // Headings
   if (content.headings.h1.length === 0) issues.push({ id: 'no-h1', severity: 'high', category: 'Content', issue: 'No H1 heading found', issueGe: 'No H1 heading found', location: '<body>', fix: 'Add one H1 heading describing page content', fixGe: 'Add one H1 heading describing page content', details: `${SEVERITY_PHRASES.high} H1 is the main heading of the page. Every page should have exactly one H1 that describes the page content.` });

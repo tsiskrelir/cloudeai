@@ -13,7 +13,11 @@ import {
   checkSSLCertificate,
   checkSecurityHeaders,
   checkUrlInSitemap,
-  checkImageSize
+  checkImageSize,
+  checkWwwRedirect,
+  checkHttpsRedirect,
+  validateSitemapUrls,
+  analyzeUrlSeoFriendliness
 } from '@/lib/fetch/fetchHtml';
 
 // Rate limiting
@@ -88,6 +92,21 @@ export async function POST(request: NextRequest) {
         }
         result.technical.sitemap = { ...sitemap, urlCount: sitemap.urlCount };
         result.technical.llmsTxt = { found: llmsTxt.found, mentioned: result.technical.llmsTxt?.mentioned || false, content: llmsTxt.content };
+
+        // llms.txt issue - only add after actual check
+        if (!llmsTxt.found && !result.technical.llmsTxt?.mentioned) {
+          result.issues.push({
+            id: 'no-llms-txt',
+            severity: 'low' as const,
+            category: 'AI',
+            issue: 'No llms.txt file found',
+            issueGe: 'llms.txt ფაილი ვერ მოიძებნა',
+            location: '/llms.txt',
+            fix: 'Create llms.txt for AI crawler guidance',
+            fixGe: 'შექმენით llms.txt AI კრაულერებისთვის',
+            details: `დაბალი პრიორიტეტი. llms.txt არის ახალი სტანდარტი AI კრაულერებისთვის (ChatGPT, Claude და ა.შ.). მისი დამატება ეხმარება AI სისტემებს თქვენი საიტის უკეთ გაგებაში.`
+          });
+        }
 
         // Check internal links for redirects (limit to 10 for performance)
         if (result.links.internalUrls && result.links.internalUrls.length > 0) {
@@ -255,9 +274,120 @@ export async function POST(request: NextRequest) {
             });
           }
         }
+
+        // URL SEO Friendliness Check
+        const urlSeoAnalysis = analyzeUrlSeoFriendliness(finalUrl);
+        result.urlStructure = {
+          ...result.urlStructure,
+          seoScore: urlSeoAnalysis.score,
+          seoIssues: urlSeoAnalysis.issues,
+          details: urlSeoAnalysis.details
+        };
+
+        if (urlSeoAnalysis.issues.length > 0) {
+          const highIssues = urlSeoAnalysis.issues.filter(i => i.severity === 'high');
+          const mediumIssues = urlSeoAnalysis.issues.filter(i => i.severity === 'medium');
+
+          if (highIssues.length > 0) {
+            result.issues.push({
+              id: 'url-seo-issues-high',
+              severity: 'high' as const,
+              category: 'URL',
+              issue: `URL has ${highIssues.length} SEO problem(s)`,
+              issueGe: `URL-ს აქვს ${highIssues.length} SEO პრობლემა`,
+              location: finalUrl,
+              fix: highIssues.map(i => i.recommendation).join('; '),
+              fixGe: highIssues.map(i => i.recommendation).join('; '),
+              details: `მაღალი პრიორიტეტი. პრობლემები:\n${highIssues.map(i => `• ${i.issue}: ${i.recommendation}`).join('\n')}`
+            });
+          }
+
+          if (mediumIssues.length > 0) {
+            result.issues.push({
+              id: 'url-seo-issues-medium',
+              severity: 'medium' as const,
+              category: 'URL',
+              issue: `URL has ${mediumIssues.length} SEO improvement(s) needed`,
+              issueGe: `URL-ს სჭირდება ${mediumIssues.length} SEO გაუმჯობესება`,
+              location: finalUrl,
+              fix: mediumIssues.map(i => i.recommendation).join('; '),
+              fixGe: mediumIssues.map(i => i.recommendation).join('; '),
+              details: `საშუალო პრიორიტეტი. გაუმჯობესებები:\n${mediumIssues.map(i => `• ${i.issue}: ${i.recommendation}`).join('\n')}`
+            });
+          }
+        }
+
+        // WWW vs Non-WWW Redirect Check
+        const wwwCheck = await checkWwwRedirect(finalUrl);
+        result.technical.wwwRedirect = wwwCheck;
+
+        if (wwwCheck.bothAccessible && wwwCheck.issue) {
+          result.issues.push({
+            id: 'www-non-www-both-accessible',
+            severity: 'high' as const,
+            category: 'Technical',
+            issue: 'Both www and non-www versions accessible',
+            issueGe: 'ორივე www და non-www ვერსია ხელმისაწვდომია',
+            location: 'Domain configuration',
+            fix: 'Set up 301 redirect from one version to the other',
+            fixGe: 'დააყენეთ 301 გადამისამართება ერთი ვერსიიდან მეორეზე',
+            details: `მაღალი პრიორიტეტი. ${wwwCheck.issue} This causes duplicate content issues and splits link equity.`
+          });
+        }
+
+        // HTTP vs HTTPS Redirect Check
+        const httpsCheck = await checkHttpsRedirect(finalUrl);
+        result.technical.httpsRedirect = httpsCheck;
+
+        if (httpsCheck.httpAccessible && !httpsCheck.httpRedirectsToHttps) {
+          result.issues.push({
+            id: 'http-no-redirect-to-https',
+            severity: 'critical' as const,
+            category: 'Security',
+            issue: 'HTTP version accessible without redirect to HTTPS',
+            issueGe: 'HTTP ვერსია ხელმისაწვდომია HTTPS-ზე გადამისამართების გარეშე',
+            location: 'Server configuration',
+            fix: 'Set up 301 redirect from HTTP to HTTPS',
+            fixGe: 'დააყენეთ 301 გადამისამართება HTTP-დან HTTPS-ზე',
+            details: `კრიტიკული პრიორიტეტი. ${httpsCheck.issue || 'HTTP should always redirect to HTTPS for security.'}`
+          });
+        }
+
+        // Sitemap URL Validation (check for 301s and 404s in sitemap)
+        const sitemapValidation = await validateSitemapUrls(base, 20);
+        result.technical.sitemapValidation = sitemapValidation;
+
+        if (sitemapValidation.redirects.length > 0) {
+          result.issues.push({
+            id: 'sitemap-has-redirects',
+            severity: 'medium' as const,
+            category: 'Sitemap',
+            issue: `Sitemap contains ${sitemapValidation.redirects.length} URL(s) that redirect`,
+            issueGe: `Sitemap შეიცავს ${sitemapValidation.redirects.length} URL-ს რომელიც გადამისამართებაა`,
+            location: 'sitemap.xml',
+            fix: 'Update sitemap to use final destination URLs, not redirecting URLs',
+            fixGe: 'განაახლეთ sitemap საბოლოო URL-ებით, არა გადამისამართებით',
+            details: `საშუალო პრიორიტეტი. Sitemap-ში გადამისამართებები:\n${sitemapValidation.redirects.slice(0, 5).map(r => `• ${r.url} → ${r.status} → ${r.location}`).join('\n')}`
+          });
+        }
+
+        if (sitemapValidation.notFound.length > 0) {
+          result.issues.push({
+            id: 'sitemap-has-404s',
+            severity: 'high' as const,
+            category: 'Sitemap',
+            issue: `Sitemap contains ${sitemapValidation.notFound.length} broken URL(s) (404)`,
+            issueGe: `Sitemap შეიცავს ${sitemapValidation.notFound.length} გატეხილ URL-ს (404)`,
+            location: 'sitemap.xml',
+            fix: 'Remove 404 URLs from sitemap or restore the pages',
+            fixGe: 'წაშალეთ 404 URL-ები sitemap-იდან ან აღადგინეთ გვერდები',
+            details: `მაღალი პრიორიტეტი. Sitemap-ში გატეხილი URL-ები:\n${sitemapValidation.notFound.slice(0, 5).map(r => `• ${r.url} → ${r.status}`).join('\n')}`
+          });
+        }
+
       } catch {}
     }
-    
+
     return NextResponse.json(result);
   } catch (error) {
     console.error('[Audit]', error);
