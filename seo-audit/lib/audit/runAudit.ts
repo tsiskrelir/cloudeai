@@ -83,6 +83,36 @@ export async function runAudit(
 // FLESCH READING SCORE (Multi-language support)
 // ============================================
 
+// Common English loanwords used internationally - should NOT trigger English detection
+const INTERNATIONAL_LOANWORDS = new Set([
+  'online', 'offline', 'website', 'internet', 'email', 'software', 'hardware', 'computer',
+  'smartphone', 'tablet', 'app', 'blog', 'podcast', 'streaming', 'download', 'upload',
+  'login', 'logout', 'password', 'username', 'account', 'profile', 'settings', 'dashboard',
+  'marketing', 'management', 'business', 'service', 'services', 'consulting', 'solutions',
+  'design', 'designer', 'developer', 'development', 'agency', 'studio', 'partner', 'partners',
+  'team', 'news', 'media', 'social', 'digital', 'content', 'brand', 'branding',
+  'shop', 'shopping', 'store', 'sale', 'deal', 'discount', 'price', 'product', 'products',
+  'contact', 'support', 'help', 'faq', 'about', 'home', 'welcome', 'newsletter',
+  'event', 'events', 'ticket', 'tickets', 'booking', 'hotel', 'resort', 'spa',
+  'fitness', 'wellness', 'yoga', 'coaching', 'training', 'workshop', 'seminar',
+  'video', 'audio', 'music', 'photo', 'gallery', 'portfolio', 'project', 'projects',
+  'style', 'fashion', 'trend', 'trends', 'beauty', 'lifestyle', 'food', 'restaurant',
+  'bar', 'cafe', 'coffee', 'cocktail', 'lounge', 'club', 'party',
+  'startup', 'innovation', 'technology', 'tech', 'cloud', 'data', 'analytics',
+  'seo', 'sem', 'ppc', 'crm', 'erp', 'api', 'pdf', 'html', 'css', 'javascript',
+  'mobile', 'responsive', 'layout', 'template', 'theme', 'plugin', 'widget',
+  'premium', 'professional', 'expert', 'quality', 'best', 'top', 'new', 'free',
+  'plus', 'pro', 'max', 'ultra', 'super', 'mega', 'mini', 'lite', 'basic', 'standard',
+  'click', 'link', 'page', 'site', 'web', 'net', 'info', 'mail', 'post',
+  'job', 'jobs', 'career', 'careers', 'hiring', 'recruitment', 'hr',
+  'legal', 'law', 'lawyer', 'attorney', 'consulting', 'consultant', 'advisor',
+  'real', 'estate', 'property', 'investment', 'finance', 'financial', 'bank', 'banking',
+  'insurance', 'trading', 'crypto', 'bitcoin', 'blockchain',
+  'health', 'medical', 'clinic', 'doctor', 'dental', 'therapy', 'treatment',
+  'education', 'school', 'university', 'college', 'academy', 'institute', 'course', 'courses',
+  'international', 'global', 'world', 'europe', 'european', 'usa', 'america', 'american'
+]);
+
 // Detect primary language of text
 function detectLanguage(text: string): 'ka' | 'ru' | 'de' | 'en' | 'es' {
   const sample = text.substring(0, 2000);
@@ -97,20 +127,24 @@ function detectLanguage(text: string): 'ka' | 'ru' | 'de' | 'en' | 'es' {
   // Count German-specific characters and common German words
   const germanUmlauts = (sample.match(/[äöüÄÖÜß]/g) || []).length;
   // Expanded German word list including legal/administrative terms common in German websites
-  const germanWords = (sampleLower.match(/\b(und|der|die|das|ist|sind|haben|werden|nicht|auch|für|mit|auf|dem|des|ein|eine|einer|einem|einen|zu|von|bei|nach|über|vor|durch|unter|gegen|ohne|seit|während|wegen|zur|zum|im|am|vom|beim|ans|ins|aufs|fürs|ums|wird|wurde|wurden|kann|können|muss|müssen|soll|sollte|darf|wenn|dass|weil|oder|aber|doch|noch|schon|nur|sehr|mehr|viel|alle|dieser|diese|dieses|welche|welcher|jetzt|heute|hier|dort|immer|wieder|sowie|jedoch|damit|dabei|dadurch|dafür|dagegen|daher|darum|schneller|neuer|berlin|verpflichtet|rechtsanwalt|kanzlei|gericht|urteil|bescheid|antrag|verfahren|humanitäre|aufnahme|visum|visa)\b/g) || []).length;
+  const germanWords = (sampleLower.match(/\b(und|der|die|das|ist|sind|haben|werden|nicht|auch|für|mit|auf|dem|des|ein|eine|einer|einem|einen|zu|von|bei|nach|über|vor|durch|unter|gegen|ohne|seit|während|wegen|zur|zum|im|am|vom|beim|ans|ins|aufs|fürs|ums|wird|wurde|wurden|kann|können|muss|müssen|soll|sollte|darf|wenn|dass|weil|oder|aber|doch|noch|schon|nur|sehr|mehr|viel|alle|dieser|diese|dieses|welche|welcher|jetzt|heute|hier|dort|immer|wieder|sowie|jedoch|damit|dabei|dadurch|dafür|dagegen|daher|darum|schneller|neuer|berlin|köln|münchen|hamburg|frankfurt|verpflichtet|rechtsanwalt|rechtsanwälte|anwalt|anwälte|kanzlei|gericht|urteil|bescheid|antrag|verfahren|humanitäre|aufnahme|visum|visa|recht|rechte|gesetz|paragraph|beratung|vertretung|mandant|mandanten|termin|termine|leistungen|impressum|datenschutz|agb|kontakt|startseite|willkommen)\b/g) || []).length;
 
-  // Detect German compound words (long words 10+ chars with German patterns)
-  const words = sampleLower.match(/\b[a-zäöüß]{10,}\b/g) || [];
-  const germanCompoundWords = words.filter(word => {
-    // German compound word suffixes
-    return /(?:ung|heit|keit|schaft|tum|nis|lich|bar|sam|haft|los|voll|reich|mäßig|recht|gesetz|erklärung|bescheid|gericht|anwalt|kanzlei|verfahren|entscheidung|regelung|bestimmung|genehmigung|zulassung|aufnahme|einreise|aufenthalts?)$/i.test(word);
+  // Detect German compound words (long words 8+ chars with German patterns)
+  const allWords = sampleLower.match(/\b[a-zäöüß]+\b/g) || [];
+  const germanCompoundWords = allWords.filter(word => {
+    if (word.length < 8) return false;
+    // German compound word suffixes and patterns
+    return /(?:ung|heit|keit|schaft|tum|nis|lich|bar|sam|haft|los|voll|reich|mäßig|recht|gesetz|erklärung|bescheid|gericht|anwalt|anwälte|kanzlei|verfahren|entscheidung|regelung|bestimmung|genehmigung|zulassung|aufnahme|einreise|aufenthalts?|beratung|vertretung|leistung|dienstleistung)$/i.test(word) ||
+           /^(rechts|gerichts|amts|staats|bundes|landes|verwaltungs)/i.test(word);
   }).length;
 
   // Count Spanish-specific characters and common Spanish words
   const spanishChars = (sample.match(/[ñÑ¿¡áéíóúÁÉÍÓÚü]/g) || []).length;
   const spanishWords = (sampleLower.match(/\b(el|la|los|las|de|que|en|es|por|con|para|como|más|pero|sus|le|ya|del|al|un|una|este|esta|son|se|no|hay|fue|todo|esta|ser|sobre|también|cuando|muy|sin|hasta|desde|donde|quien|entre|después|antes|durante|hacia|contra|según)\b/g) || []).length;
 
-  // Count Latin characters
+  // Count Latin characters (excluding international loanwords)
+  const latinWords = allWords.filter(w => w.length > 2 && /^[a-z]+$/.test(w));
+  const nonLoanwordLatinWords = latinWords.filter(w => !INTERNATIONAL_LOANWORDS.has(w));
   const latinChars = (sample.match(/[a-zA-Z]/g) || []).length;
 
   const total = georgianChars + cyrillicChars + latinChars;
@@ -126,12 +160,20 @@ function detectLanguage(text: string): 'ka' | 'ru' | 'de' | 'en' | 'es' {
   // For short texts (<200 chars like titles): lower thresholds
   const isShortText = sample.length < 200;
   const germanUmlautThreshold = isShortText ? 1 : 3;
-  const germanWordThreshold = isShortText ? 2 : 5;
+  const germanWordThreshold = isShortText ? 1 : 4;  // Lowered: even 1 German word in title = German
 
+  // If we have German indicators (umlauts, German words, compound words), it's German
   if (germanUmlauts >= germanUmlautThreshold || germanWords >= germanWordThreshold || germanCompoundWords >= 1) return 'de';
 
   // Spanish detection: Spanish chars OR common Spanish words
   if (spanishChars > 3 || spanishWords > 8) return 'es';
+
+  // If most Latin words are just international loanwords, don't assume English
+  // Only return English if there are actual English-only words
+  if (nonLoanwordLatinWords.length < latinWords.length * 0.5 && latinWords.length > 3) {
+    // More than half are loanwords - could be any language, default to detected or 'en'
+    return 'en';
+  }
 
   return 'en';
 }
@@ -1622,8 +1664,8 @@ function collectIssues(data: any): AuditIssue[] {
   // Robots
   if (technical.robots.hasNoindex) issues.push({ id: 'noindex', severity: 'critical', category: 'Technical', issue: 'Page blocked from indexing (noindex)', issueGe: 'Page blocked from indexing (noindex)', location: `<meta name="robots" content="${technical.robots.meta}">`, fix: 'Remove noindex if page should be indexed', fixGe: 'Remove noindex if page should be indexed', details: `${SEVERITY_PHRASES.critical} noindex meta tag blocks page indexing in Google. Page will not appear in search results!` });
 
-  // llms.txt
-  if (!technical.llmsTxt.found && !technical.llmsTxt.mentioned) issues.push({ id: 'no-llms-txt', severity: 'low', category: 'AI', issue: 'No llms.txt file found', issueGe: 'No llms.txt file found', location: '/llms.txt', fix: 'Create llms.txt for AI crawler guidance', fixGe: 'Create llms.txt for AI crawler guidance', details: `${SEVERITY_PHRASES.low} llms.txt is a new standard for AI crawlers (ChatGPT, Claude, etc.). Adding it helps AI systems better understand your site.` });
+  // llms.txt - NOTE: This check is now done in the API route after actual fetch
+  // The issue is added there to avoid false positives when llms.txt exists but wasn't fetched yet
 
   // Headings
   if (content.headings.h1.length === 0) issues.push({ id: 'no-h1', severity: 'high', category: 'Content', issue: 'No H1 heading found', issueGe: 'No H1 heading found', location: '<body>', fix: 'Add one H1 heading describing page content', fixGe: 'Add one H1 heading describing page content', details: `${SEVERITY_PHRASES.high} H1 is the main heading of the page. Every page should have exactly one H1 that describes the page content.` });

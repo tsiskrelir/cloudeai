@@ -644,6 +644,502 @@ export async function checkServerResponse(url: string): Promise<{
 }
 
 // --------------------
+// WWW vs Non-WWW Redirect Check
+// --------------------
+
+export async function checkWwwRedirect(baseUrl: string): Promise<{
+  wwwRedirectsToNonWww: boolean;
+  nonWwwRedirectsToWww: boolean;
+  bothAccessible: boolean;
+  preferredVersion: 'www' | 'non-www' | 'unknown';
+  issue?: string;
+}> {
+  try {
+    const parsed = new URL(baseUrl);
+    const host = parsed.hostname;
+    const protocol = parsed.protocol;
+
+    // Determine www and non-www versions
+    const hasWww = host.startsWith('www.');
+    const wwwHost = hasWww ? host : `www.${host}`;
+    const nonWwwHost = hasWww ? host.substring(4) : host;
+
+    const wwwUrl = `${protocol}//${wwwHost}/`;
+    const nonWwwUrl = `${protocol}//${nonWwwHost}/`;
+
+    // Check both versions in parallel
+    const [wwwResult, nonWwwResult] = await Promise.all([
+      requestUrl({ url: wwwUrl, method: 'HEAD', timeout: 8000, followRedirects: false, readBody: false }).catch(() => null),
+      requestUrl({ url: nonWwwUrl, method: 'HEAD', timeout: 8000, followRedirects: false, readBody: false }).catch(() => null)
+    ]);
+
+    const wwwRedirects = wwwResult && wwwResult.status >= 300 && wwwResult.status < 400;
+    const nonWwwRedirects = nonWwwResult && nonWwwResult.status >= 300 && nonWwwResult.status < 400;
+    const wwwAccessible = wwwResult && wwwResult.status >= 200 && wwwResult.status < 400;
+    const nonWwwAccessible = nonWwwResult && nonWwwResult.status >= 200 && nonWwwResult.status < 400;
+
+    // Check redirect destinations
+    const wwwRedirectsToNonWww = wwwRedirects && wwwResult?.headers.location?.includes(nonWwwHost) || false;
+    const nonWwwRedirectsToWww = nonWwwRedirects && nonWwwResult?.headers.location?.includes(wwwHost) || false;
+
+    let preferredVersion: 'www' | 'non-www' | 'unknown' = 'unknown';
+    let issue: string | undefined;
+
+    if (wwwRedirectsToNonWww && !nonWwwRedirects) {
+      preferredVersion = 'non-www';
+    } else if (nonWwwRedirectsToWww && !wwwRedirects) {
+      preferredVersion = 'www';
+    } else if (wwwAccessible && nonWwwAccessible && !wwwRedirects && !nonWwwRedirects) {
+      issue = 'Both www and non-www versions are accessible without redirect. Set up 301 redirect to preferred version.';
+    }
+
+    return {
+      wwwRedirectsToNonWww,
+      nonWwwRedirectsToWww,
+      bothAccessible: Boolean(wwwAccessible && nonWwwAccessible && !wwwRedirects && !nonWwwRedirects),
+      preferredVersion,
+      issue
+    };
+  } catch {
+    return {
+      wwwRedirectsToNonWww: false,
+      nonWwwRedirectsToWww: false,
+      bothAccessible: false,
+      preferredVersion: 'unknown'
+    };
+  }
+}
+
+// --------------------
+// HTTP vs HTTPS Check
+// --------------------
+
+export async function checkHttpsRedirect(baseUrl: string): Promise<{
+  httpRedirectsToHttps: boolean;
+  httpsAccessible: boolean;
+  httpAccessible: boolean;
+  issue?: string;
+}> {
+  try {
+    const parsed = new URL(baseUrl);
+    const host = parsed.hostname;
+
+    const httpUrl = `http://${host}/`;
+    const httpsUrl = `https://${host}/`;
+
+    const [httpResult, httpsResult] = await Promise.all([
+      requestUrl({ url: httpUrl, method: 'HEAD', timeout: 8000, followRedirects: false, readBody: false }).catch(() => null),
+      requestUrl({ url: httpsUrl, method: 'HEAD', timeout: 8000, followRedirects: false, readBody: false }).catch(() => null)
+    ]);
+
+    const httpRedirects = httpResult && httpResult.status >= 300 && httpResult.status < 400;
+    const httpRedirectsToHttps = httpRedirects && httpResult?.headers.location?.startsWith('https://') || false;
+    const httpsAccessible = httpsResult && httpsResult.status >= 200 && httpsResult.status < 400;
+    const httpAccessible = httpResult && httpResult.status >= 200 && httpResult.status < 400;
+
+    let issue: string | undefined;
+    if (httpAccessible && !httpRedirectsToHttps) {
+      issue = 'HTTP version is accessible without redirect to HTTPS. Set up 301 redirect from HTTP to HTTPS.';
+    }
+
+    return {
+      httpRedirectsToHttps,
+      httpsAccessible: Boolean(httpsAccessible),
+      httpAccessible: Boolean(httpAccessible && !httpRedirects),
+      issue
+    };
+  } catch {
+    return {
+      httpRedirectsToHttps: false,
+      httpsAccessible: false,
+      httpAccessible: false
+    };
+  }
+}
+
+// --------------------
+// Sitemap URL Validation (301s, 404s)
+// --------------------
+
+export async function validateSitemapUrls(
+  baseUrl: string,
+  maxUrls = 20
+): Promise<{
+  checked: number;
+  redirects: { url: string; status: number; location: string }[];
+  notFound: { url: string; status: number }[];
+  errors: { url: string; error: string }[];
+}> {
+  const redirects: { url: string; status: number; location: string }[] = [];
+  const notFound: { url: string; status: number }[] = [];
+  const errors: { url: string; error: string }[] = [];
+
+  try {
+    // First, find and fetch the sitemap
+    const sitemapUrls = [
+      new URL('/sitemap.xml', baseUrl).href,
+      new URL('/sitemap_index.xml', baseUrl).href,
+    ];
+
+    let sitemapContent: string | null = null;
+
+    for (const sitemapUrl of sitemapUrls) {
+      try {
+        const res = await requestUrl({ url: sitemapUrl, timeout: 10000, readBody: true });
+        if (res.status === 200 && res.body && (res.body.includes('<urlset') || res.body.includes('<sitemapindex'))) {
+          sitemapContent = res.body;
+          break;
+        }
+      } catch {
+        continue;
+      }
+    }
+
+    if (!sitemapContent) {
+      return { checked: 0, redirects, notFound, errors };
+    }
+
+    // Extract URLs from sitemap
+    const locMatches = sitemapContent.match(/<loc>([^<]+)<\/loc>/g) || [];
+    const urls = locMatches.map(m => m.replace(/<\/?loc>/g, '')).slice(0, maxUrls);
+
+    // Check each URL
+    for (let i = 0; i < urls.length; i += 5) {
+      const batch = urls.slice(i, i + 5);
+      await Promise.all(batch.map(async (url) => {
+        try {
+          const res = await requestUrl({
+            url,
+            method: 'HEAD',
+            timeout: 8000,
+            followRedirects: false,
+            readBody: false
+          });
+
+          if (res.status >= 300 && res.status < 400) {
+            redirects.push({ url, status: res.status, location: res.headers.location || '' });
+          } else if (res.status === 404 || res.status === 410) {
+            notFound.push({ url, status: res.status });
+          } else if (res.status >= 500) {
+            errors.push({ url, error: `Server error: ${res.status}` });
+          }
+        } catch (e) {
+          errors.push({ url, error: e instanceof Error ? e.message : 'Connection error' });
+        }
+      }));
+    }
+
+    return { checked: urls.length, redirects, notFound, errors };
+  } catch {
+    return { checked: 0, redirects, notFound, errors };
+  }
+}
+
+// --------------------
+// Full Sitemap Scan & Site Tree
+// --------------------
+
+export interface SiteTreeNode {
+  path: string;
+  fullUrl: string;
+  children: SiteTreeNode[];
+  isCurrentPage?: boolean;
+  status?: number;
+  inSitemap?: boolean;
+}
+
+export async function buildSiteTree(
+  baseUrl: string,
+  currentPageUrl: string,
+  maxUrls = 100
+): Promise<{
+  tree: SiteTreeNode;
+  totalUrls: number;
+  sitemapUrls: string[];
+  currentPagePath: string[];
+  issues: { url: string; issue: string; status?: number }[];
+}> {
+  const issues: { url: string; issue: string; status?: number }[] = [];
+  const sitemapUrls: string[] = [];
+
+  try {
+    const parsed = new URL(baseUrl);
+    const rootPath = parsed.hostname;
+
+    // Create root node
+    const root: SiteTreeNode = {
+      path: '/',
+      fullUrl: `${parsed.protocol}//${parsed.host}/`,
+      children: []
+    };
+
+    // Fetch sitemap
+    const sitemapLocations = [
+      new URL('/sitemap.xml', baseUrl).href,
+      new URL('/sitemap_index.xml', baseUrl).href,
+    ];
+
+    let allUrls: string[] = [];
+
+    for (const sitemapUrl of sitemapLocations) {
+      try {
+        const res = await requestUrl({ url: sitemapUrl, timeout: 15000, readBody: true });
+        if (res.status === 200 && res.body) {
+          // Check if it's a sitemap index
+          if (res.body.includes('<sitemapindex')) {
+            const childSitemapMatches = res.body.match(/<loc>([^<]+)<\/loc>/g) || [];
+            const childSitemaps = childSitemapMatches.map(m => m.replace(/<\/?loc>/g, '')).slice(0, 10);
+
+            for (const childUrl of childSitemaps) {
+              try {
+                const childRes = await requestUrl({ url: childUrl, timeout: 10000, readBody: true });
+                if (childRes.status === 200 && childRes.body) {
+                  const urlMatches = childRes.body.match(/<loc>([^<]+)<\/loc>/g) || [];
+                  const urls = urlMatches.map(m => m.replace(/<\/?loc>/g, ''));
+                  allUrls.push(...urls);
+                }
+              } catch {
+                continue;
+              }
+            }
+          } else if (res.body.includes('<urlset')) {
+            const urlMatches = res.body.match(/<loc>([^<]+)<\/loc>/g) || [];
+            allUrls = urlMatches.map(m => m.replace(/<\/?loc>/g, ''));
+          }
+
+          if (allUrls.length > 0) break;
+        }
+      } catch {
+        continue;
+      }
+    }
+
+    // Limit URLs and store
+    allUrls = [...new Set(allUrls)].slice(0, maxUrls);
+    sitemapUrls.push(...allUrls);
+
+    // Build tree structure from URLs
+    const normalizedCurrentPage = currentPageUrl.toLowerCase().replace(/\/$/, '');
+
+    for (const url of allUrls) {
+      try {
+        const urlParsed = new URL(url);
+        if (urlParsed.hostname !== parsed.hostname) continue;
+
+        const pathParts = urlParsed.pathname.split('/').filter(p => p);
+        let currentNode = root;
+
+        for (let i = 0; i < pathParts.length; i++) {
+          const part = pathParts[i];
+          let childNode = currentNode.children.find(c => c.path === part);
+
+          if (!childNode) {
+            const fullPath = '/' + pathParts.slice(0, i + 1).join('/');
+            childNode = {
+              path: part,
+              fullUrl: `${parsed.protocol}//${parsed.hostname}${fullPath}`,
+              children: [],
+              inSitemap: true
+            };
+            currentNode.children.push(childNode);
+          }
+
+          // Mark if this is the current page
+          if (childNode.fullUrl.toLowerCase().replace(/\/$/, '') === normalizedCurrentPage) {
+            childNode.isCurrentPage = true;
+          }
+
+          currentNode = childNode;
+        }
+      } catch {
+        continue;
+      }
+    }
+
+    // Sort children alphabetically at each level
+    const sortTree = (node: SiteTreeNode) => {
+      node.children.sort((a, b) => a.path.localeCompare(b.path));
+      node.children.forEach(sortTree);
+    };
+    sortTree(root);
+
+    // Find path to current page
+    const currentPagePath: string[] = [];
+    const findCurrentPagePath = (node: SiteTreeNode, path: string[]): boolean => {
+      if (node.isCurrentPage) {
+        currentPagePath.push(...path, node.path);
+        return true;
+      }
+      for (const child of node.children) {
+        if (findCurrentPagePath(child, [...path, node.path])) return true;
+      }
+      return false;
+    };
+    findCurrentPagePath(root, []);
+
+    // Check if current page is in sitemap
+    const currentPageInSitemap = sitemapUrls.some(
+      u => u.toLowerCase().replace(/\/$/, '') === normalizedCurrentPage
+    );
+    if (!currentPageInSitemap && currentPageUrl !== baseUrl) {
+      issues.push({ url: currentPageUrl, issue: 'Current page not found in sitemap' });
+    }
+
+    return {
+      tree: root,
+      totalUrls: sitemapUrls.length,
+      sitemapUrls,
+      currentPagePath,
+      issues
+    };
+  } catch {
+    return {
+      tree: { path: '/', fullUrl: baseUrl, children: [] },
+      totalUrls: 0,
+      sitemapUrls: [],
+      currentPagePath: [],
+      issues
+    };
+  }
+}
+
+// --------------------
+// URL SEO Friendliness Check
+// --------------------
+
+export function analyzeUrlSeoFriendliness(url: string): {
+  score: number;
+  issues: { issue: string; severity: 'high' | 'medium' | 'low'; recommendation: string }[];
+  details: {
+    length: number;
+    hasUnderscores: boolean;
+    hasUppercase: boolean;
+    hasSpecialChars: boolean;
+    hasNumbers: boolean;
+    depth: number;
+    hasFileExtension: boolean;
+    hasDuplicateSlashes: boolean;
+    hasTrailingSlash: boolean;
+  };
+} {
+  const issues: { issue: string; severity: 'high' | 'medium' | 'low'; recommendation: string }[] = [];
+  let score = 100;
+
+  try {
+    const parsed = new URL(url);
+    const path = parsed.pathname;
+    const pathWithoutSlash = path.replace(/^\/|\/$/g, '');
+
+    const details = {
+      length: path.length,
+      hasUnderscores: path.includes('_'),
+      hasUppercase: /[A-Z]/.test(path),
+      hasSpecialChars: /[^a-zA-Z0-9\-\/_.]/.test(path),
+      hasNumbers: /\d/.test(path),
+      depth: pathWithoutSlash ? pathWithoutSlash.split('/').length : 0,
+      hasFileExtension: /\.(html|htm|php|asp|aspx|jsp)$/i.test(path),
+      hasDuplicateSlashes: /\/\/+/.test(path),
+      hasTrailingSlash: path.length > 1 && path.endsWith('/')
+    };
+
+    // Check URL length (path only)
+    if (path.length > 100) {
+      issues.push({
+        issue: `URL path too long (${path.length} chars)`,
+        severity: 'high',
+        recommendation: 'Keep URL path under 100 characters. Use shorter, descriptive words.'
+      });
+      score -= 20;
+    } else if (path.length > 75) {
+      issues.push({
+        issue: `URL path is long (${path.length} chars)`,
+        severity: 'medium',
+        recommendation: 'Consider shortening URL path to under 75 characters.'
+      });
+      score -= 10;
+    }
+
+    // Check for underscores (should use hyphens)
+    if (details.hasUnderscores) {
+      issues.push({
+        issue: 'URL contains underscores (_)',
+        severity: 'medium',
+        recommendation: 'Use hyphens (-) instead of underscores (_). Google treats hyphens as word separators.'
+      });
+      score -= 15;
+    }
+
+    // Check for uppercase letters
+    if (details.hasUppercase) {
+      issues.push({
+        issue: 'URL contains uppercase letters',
+        severity: 'medium',
+        recommendation: 'Use lowercase letters only. URLs are case-sensitive and uppercase can cause duplicate content issues.'
+      });
+      score -= 10;
+    }
+
+    // Check for special characters (excluding normal URL chars)
+    if (details.hasSpecialChars) {
+      issues.push({
+        issue: 'URL contains special characters',
+        severity: 'high',
+        recommendation: 'Avoid special characters in URLs. Use only letters, numbers, and hyphens.'
+      });
+      score -= 20;
+    }
+
+    // Check URL depth
+    if (details.depth > 4) {
+      issues.push({
+        issue: `URL depth too deep (${details.depth} levels)`,
+        severity: 'medium',
+        recommendation: 'Keep URL structure shallow (3-4 levels max). Deep URLs are harder to crawl and rank.'
+      });
+      score -= 10;
+    }
+
+    // Check for file extensions
+    if (details.hasFileExtension) {
+      issues.push({
+        issue: 'URL has file extension (.html, .php, etc.)',
+        severity: 'low',
+        recommendation: 'Consider removing file extensions for cleaner URLs.'
+      });
+      score -= 5;
+    }
+
+    // Check for duplicate slashes
+    if (details.hasDuplicateSlashes) {
+      issues.push({
+        issue: 'URL contains duplicate slashes (//)',
+        severity: 'high',
+        recommendation: 'Remove duplicate slashes. They can cause duplicate content and crawling issues.'
+      });
+      score -= 15;
+    }
+
+    return { score: Math.max(0, score), issues, details };
+  } catch {
+    return {
+      score: 0,
+      issues: [{ issue: 'Invalid URL format', severity: 'high', recommendation: 'Fix URL format' }],
+      details: {
+        length: 0,
+        hasUnderscores: false,
+        hasUppercase: false,
+        hasSpecialChars: false,
+        hasNumbers: false,
+        depth: 0,
+        hasFileExtension: false,
+        hasDuplicateSlashes: false,
+        hasTrailingSlash: false
+      }
+    };
+  }
+}
+
+// --------------------
 // Redirect Chain Check
 // --------------------
 

@@ -2,6 +2,64 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  /* Brand Colors */
+  --color-primary: #11225c;
+  --color-accent: #99ff00;
+  --color-secondary: #00ccff;
+  --color-highlight: #ff00ff;
+
+  /* Derived colors */
+  --color-primary-dark: #0a1540;
+  --color-primary-light: #1a3380;
+  --color-accent-dark: #7acc00;
+  --color-accent-light: #b3ff33;
+}
+
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Noto Sans Georgian', sans-serif;
+}
+
+/* Custom gradient backgrounds */
+.bg-brand-gradient {
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-light) 100%);
+}
+
+.bg-brand-header {
+  background: linear-gradient(90deg, var(--color-primary) 0%, #1a3d8a 50%, var(--color-primary-light) 100%);
+}
+
+/* Accent colors */
+.text-brand-accent { color: var(--color-accent); }
+.bg-brand-accent { background-color: var(--color-accent); }
+.border-brand-accent { border-color: var(--color-accent); }
+
+.text-brand-secondary { color: var(--color-secondary); }
+.bg-brand-secondary { background-color: var(--color-secondary); }
+.border-brand-secondary { border-color: var(--color-secondary); }
+
+.text-brand-highlight { color: var(--color-highlight); }
+.bg-brand-highlight { background-color: var(--color-highlight); }
+.border-brand-highlight { border-color: var(--color-highlight); }
+
+/* Buttons */
+.btn-brand {
+  background-color: var(--color-accent);
+  color: var(--color-primary);
+  font-weight: 600;
+}
+.btn-brand:hover {
+  background-color: var(--color-accent-light);
+}
+
+/* Score circle */
+.score-ring {
+  stroke: var(--color-accent);
+}
+
+/* Code blocks */
+.code-block {
+  background-color: var(--color-primary-dark);
+  color: var(--color-accent);
+  border-left: 3px solid var(--color-secondary);
 }

@@ -17,6 +17,19 @@ export interface FetchResult {
 export type RenderMethod = 'ssr' | 'csr' | 'static' | 'unknown';
 
 /* ============================================================================
+ * SITE TREE
+ * ========================================================================== */
+
+export interface SiteTreeNode {
+  path: string;
+  fullUrl: string;
+  children: SiteTreeNode[];
+  isCurrentPage?: boolean;
+  status?: number;
+  inSitemap?: boolean;
+}
+
+/* ============================================================================
  * AUDIT ISSUES
  * ========================================================================== */
 
@@ -76,6 +89,14 @@ export interface TechnicalData {
     sitemapCount?: number; // Number of sub-sitemaps in sitemap_index.xml
   };
 
+  siteTree?: {
+    tree: SiteTreeNode;
+    totalUrls: number;
+    sitemapUrls: string[];
+    currentPagePath: string[];
+    issues: { url: string; issue: string; status?: number }[];
+  };
+
   llmsTxt: {
     found: boolean;
     mentioned: boolean;
@@ -94,6 +115,29 @@ export interface TechnicalData {
   appleTouchIcon: boolean;
   manifestJson: boolean;
   themeColor: string | null;
+
+  // Site-wide checks (populated by API)
+  wwwRedirect?: {
+    wwwRedirectsToNonWww: boolean;
+    nonWwwRedirectsToWww: boolean;
+    bothAccessible: boolean;
+    preferredVersion: 'www' | 'non-www' | 'unknown';
+    issue?: string;
+  };
+
+  httpsRedirect?: {
+    httpRedirectsToHttps: boolean;
+    httpsAccessible: boolean;
+    httpAccessible: boolean;
+    issue?: string;
+  };
+
+  sitemapValidation?: {
+    checked: number;
+    redirects: { url: string; status: number; location: string }[];
+    notFound: { url: string; status: number }[];
+    errors: { url: string; error: string }[];
+  };
 }
 
 /* ============================================================================
@@ -173,6 +217,8 @@ export interface RedirectLinkItem extends LinkItem {
 export interface BrokenLinkItem extends LinkItem {
   status: number;
   error?: string;
+  reason?: string;  // Why the link is broken
+  htmlTag?: string; // Full HTML tag for display
 }
 
 export interface LinkData {
@@ -604,6 +650,20 @@ export interface UrlStructureData {
   hasTrailingSlash: boolean;
   hasFileExtension: boolean;
   issues: string[];
+  // SEO friendliness analysis
+  seoScore?: number;
+  seoIssues?: { issue: string; severity: 'high' | 'medium' | 'low'; recommendation: string }[];
+  details?: {
+    length: number;
+    hasUnderscores: boolean;
+    hasUppercase: boolean;
+    hasSpecialChars: boolean;
+    hasNumbers: boolean;
+    depth: number;
+    hasFileExtension: boolean;
+    hasDuplicateSlashes: boolean;
+    hasTrailingSlash: boolean;
+  };
 }
 
 /* ============================================================================
