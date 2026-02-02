@@ -32,13 +32,13 @@ export async function POST(request: NextRequest) {
   try {
     const ip = request.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown';
     if (!checkRate(ip)) {
-      return NextResponse.json({ error: 'ლიმიტი ამოიწურა. დაელოდეთ 1 წუთი.' }, { status: 429 });
+      return NextResponse.json({ error: 'You run out of limits. Wait 1 minute.' }, { status: 429 });
     }
     
     const { url, html: providedHtml } = await request.json();
     
     if (!url && !providedHtml) {
-      return NextResponse.json({ error: 'URL ან HTML აუცილებელია' }, { status: 400 });
+      return NextResponse.json({ error: 'URL or HTML is requested' }, { status: 400 });
     }
     
     let html: string;
