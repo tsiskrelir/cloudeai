@@ -2,8 +2,8 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'SEO აუდიტი | 10xSEO',
-  description: 'უფასო SEO აუდიტის ინსტრუმენტი - 50+ შემოწმება თქვენი ვებგვერდისთვის',
+  title: 'SEO Audit | Web & SEO',
+  description: 'Universal SEO audit tool - 50+ for your website',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
