@@ -28,8 +28,8 @@ export async function runAudit(
   const htmlLower = html.toLowerCase();
 
   const technical = analyzeTechnical(doc, sourceUrl, htmlLower, options);
-  const international = analyzeInternational(doc, sourceUrl, technical.canonical.href, technical.language);
   const content = analyzeContent(doc, htmlLower, technical.title.value, technical.language);
+  const international = analyzeInternational(doc, sourceUrl, technical.canonical.href, technical.language, content.detectedLanguage);
   const links = analyzeLinks(doc, sourceUrl);
   const images = analyzeImages(doc);
   const schema = analyzeSchema(doc);
@@ -463,7 +463,7 @@ function normalizeUrlForComparison(url: string | null | undefined): string {
   }
 }
 
-function analyzeInternational(doc: Document, sourceUrl: string, canonicalHref: string | null, htmlLang: string | null) {
+function analyzeInternational(doc: Document, sourceUrl: string, canonicalHref: string | null, htmlLang: string | null, detectedContentLang?: 'ka' | 'ru' | 'de' | 'en' | 'es') {
   const hreflangs: HreflangTag[] = Array.from(doc.querySelectorAll('link[rel="alternate"][hreflang]')).map((link) => ({ hreflang: link.getAttribute('hreflang') || '', href: link.getAttribute('href') || '' }));
   const hasXDefault = hreflangs.some((h) => h.hreflang === 'x-default');
   const sourceUrlNormalized = normalizeUrlForComparison(sourceUrl);
@@ -475,6 +475,19 @@ function analyzeInternational(doc: Document, sourceUrl: string, canonicalHref: s
   if (htmlLang && hreflangs.length > 0) {
     const langCode = htmlLang.toLowerCase().split('-')[0];
     langMatchesHreflang = hreflangs.some((h) => h.hreflang?.toLowerCase().split('-')[0] === langCode || h.hreflang === 'x-default');
+  }
+
+  // NEW: Check if detected content language matches the self-referencing hreflang
+  let contentMatchesHreflang = true;
+  let selfHreflangLang: string | null = null;
+  if (detectedContentLang && hreflangs.length > 0) {
+    // Find the hreflang that points to this page (self-reference)
+    const selfHreflang = hreflangs.find((h) => normalizeUrlForComparison(h.href) === sourceUrlNormalized);
+    if (selfHreflang && selfHreflang.hreflang && selfHreflang.hreflang !== 'x-default') {
+      selfHreflangLang = selfHreflang.hreflang.toLowerCase().split('-')[0];
+      // Check if detected content language matches the hreflang value
+      contentMatchesHreflang = selfHreflangLang === detectedContentLang;
+    }
   }
 
   const issues: string[] = [];
@@ -505,11 +518,11 @@ function analyzeInternational(doc: Document, sourceUrl: string, canonicalHref: s
     const uniqueUrls = [...new Set(data.urls)];
     // If same URL appears multiple times with same base language = duplicate
     if (data.urls.length > uniqueUrls.length) {
-      duplicateHreflangs.push(`${baseLang}: ${data.variants.join(' & ')} → იგივე URL-ზე მიუთითებს`);
+      duplicateHreflangs.push(`${baseLang}: ${data.variants.join(' & ')} → pointing to same URL`);
     }
     // If both "de" and "de-DE" exist - potentially confusing
     else if (data.variants.length > 1 && data.variants.some(v => !v.includes('-')) && data.variants.some(v => v.includes('-'))) {
-      duplicateHreflangs.push(`${baseLang}: ${data.variants.join(' & ')} → დააზუსტეთ (გამოიყენეთ ან ${baseLang} ან ${baseLang}-XX)`);
+      duplicateHreflangs.push(`${baseLang}: ${data.variants.join(' & ')} → clarify (use either ${baseLang} or ${baseLang}-XX)`);
     }
   });
 
@@ -536,7 +549,7 @@ function analyzeInternational(doc: Document, sourceUrl: string, canonicalHref: s
     }
   });
 
-  return { hreflangs, hasXDefault, hasSelfReference, canonicalInHreflang, langMatchesHreflang, issues, duplicateHreflangs, nonCanonicalHreflangs };
+  return { hreflangs, hasXDefault, hasSelfReference, canonicalInHreflang, langMatchesHreflang, contentMatchesHreflang, selfHreflangLang, issues, duplicateHreflangs, nonCanonicalHreflangs };
 }
 
 // ============================================
@@ -1728,6 +1741,22 @@ function collectIssues(data: any): AuditIssue[] {
     if (!international.hasSelfReference) issues.push({ id: 'no-self-hreflang', severity: 'high', category: 'International', issue: 'Missing self-referencing hreflang', issueGe: 'Missing self-referencing hreflang', location: '<head>', fix: 'Add hreflang pointing to current page', fixGe: 'Add hreflang pointing to current page', details: `${SEVERITY_PHRASES.high} All hreflang sets must include a self-referencing link to the current page.` });
     if (!international.canonicalInHreflang) issues.push({ id: 'canonical-not-in-hreflang', severity: 'high', category: 'International', issue: 'Canonical URL missing from hreflang set', issueGe: 'Canonical URL missing from hreflang set', location: '<head>', fix: 'Add canonical URL to hreflang set', fixGe: 'Add canonical URL to hreflang set', details: `${SEVERITY_PHRASES.high} Canonical URL must be in the hreflang set.` });
     if (!international.langMatchesHreflang) issues.push({ id: 'lang-mismatch', severity: 'medium', category: 'International', issue: 'HTML lang not matching hreflang', issueGe: 'HTML lang not matching hreflang', location: `<html lang="${technical.language}">`, fix: 'Ensure lang attribute matches a hreflang', fixGe: 'Ensure lang attribute matches a hreflang', details: `${SEVERITY_PHRASES.medium} HTML lang="${technical.language}" doesn't match any hreflang value.` });
+
+    // NEW: Content language vs hreflang mismatch - critical for user experience and SEO
+    if (!international.contentMatchesHreflang && international.selfHreflangLang && content.detectedLanguage) {
+      const langNames: Record<string, string> = { 'ka': 'Georgian', 'ru': 'Russian', 'de': 'German', 'en': 'English', 'es': 'Spanish', 'fr': 'French', 'it': 'Italian', 'pt': 'Portuguese' };
+      issues.push({
+        id: 'content-hreflang-mismatch',
+        severity: 'critical',
+        category: 'International',
+        issue: `Content language mismatch: hreflang="${international.selfHreflangLang}" but actual content is ${langNames[content.detectedLanguage] || content.detectedLanguage}`,
+        issueGe: `Content language mismatch: hreflang="${international.selfHreflangLang}" but actual content is ${langNames[content.detectedLanguage] || content.detectedLanguage}`,
+        location: `<link rel="alternate" hreflang="${international.selfHreflangLang}">`,
+        fix: `Change hreflang to "${content.detectedLanguage}" or translate content to ${langNames[international.selfHreflangLang] || international.selfHreflangLang}`,
+        fixGe: `Change hreflang to "${content.detectedLanguage}" or translate content to ${langNames[international.selfHreflangLang] || international.selfHreflangLang}`,
+        details: `${SEVERITY_PHRASES.critical} The hreflang attribute tells Google this page is in ${langNames[international.selfHreflangLang] || international.selfHreflangLang}, but the actual content is detected as ${langNames[content.detectedLanguage] || content.detectedLanguage}. This severely confuses search engines and harms international SEO. Users searching in ${langNames[international.selfHreflangLang] || international.selfHreflangLang} will find a page in a different language.`
+      });
+    }
 
     // Duplicate hreflang languages
     if (international.duplicateHreflangs && international.duplicateHreflangs.length > 0) {

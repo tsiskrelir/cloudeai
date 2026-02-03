@@ -155,6 +155,8 @@ export interface InternationalData {
   hasSelfReference: boolean;
   canonicalInHreflang: boolean;
   langMatchesHreflang: boolean;
+  contentMatchesHreflang: boolean;
+  selfHreflangLang: string | null;
   issues: string[];
   duplicateHreflangs: string[];
   nonCanonicalHreflangs: string[];
