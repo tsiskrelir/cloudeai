@@ -386,12 +386,14 @@ export interface AccessibilityData {
 
   colorContrastIssues: number;
   contrastDetails: {
-    lowContrastElements: { element: string; text: string; colors: string; ratio: string; section?: string }[];
+    lowContrastElements: { element: string; text: string; foreground: string; background: string; ratio: number; wcagAA: boolean; wcagAAA: boolean; section?: string; css?: string }[];
     passedWCAG_AA: boolean;
     passedWCAG_AAA: boolean;
     score: number; // 0-100
     sectionIssues?: { section: string; count: number }[];
+    contrastIssuesList?: { type: string; count: number; details: { element: string; foreground: string; background: string; ratio: number; wcagAA: boolean; wcagAAA: boolean; css?: string }[] }[];
   };
+  contrastIssuesList?: { type: string; count: number; details: { element: string; foreground: string; background: string; ratio: number; wcagAA: boolean; wcagAAA: boolean; css?: string }[] }[];
   tablesWithoutHeaders: number;
   autoplayMedia: number;
 

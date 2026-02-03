@@ -70,7 +70,7 @@ interface AuditResult {
   images: { total: number; withoutAlt: number; withEmptyAlt: number; withoutDimensions: number; lazyLoaded: number; lazyAboveFold: number; clickableWithoutAlt: number; decorativeCount: number; largeImages: number; modernFormats: number; srcsetCount: number; };
   schema: { count: number; types: string[]; valid: number; invalid: number; details: SchemaItem[]; missingContext: number; hasWebSiteSearch: boolean; hasBreadcrumb: boolean; hasOrganization: boolean; hasFAQ: boolean; hasHowTo: boolean; };
   social: { og: { title: string | null; description: string | null; image: string | null; url: string | null; type: string | null; siteName: string | null; locale: string | null }; twitter: { card: string | null; site: string | null; creator: string | null; title: string | null; description: string | null; image: string | null }; isComplete: boolean; hasArticleTags: boolean; };
-  accessibility: { buttonsWithoutLabel: number; inputsWithoutLabel: number; linksWithoutText: number; iframesWithoutTitle: number; skippedHeadings: string[]; hasSkipLink: boolean; hasLangAttribute: boolean; clickableImagesWithoutAlt: number; positiveTabindex: number; hasMainLandmark: boolean; hasNavLandmark: boolean; hasFocusVisible: boolean; colorContrastIssues: number; aria: AriaData; tablesWithoutHeaders: number; autoplayMedia: number; };
+  accessibility: { buttonsWithoutLabel: number; inputsWithoutLabel: number; linksWithoutText: number; iframesWithoutTitle: number; skippedHeadings: string[]; hasSkipLink: boolean; hasLangAttribute: boolean; clickableImagesWithoutAlt: number; positiveTabindex: number; hasMainLandmark: boolean; hasNavLandmark: boolean; hasFocusVisible: boolean; colorContrastIssues: number; contrastIssuesList?: { type: string; count: number; details: { element: string; foreground: string; background: string; ratio: number; wcagAA: boolean; wcagAAA: boolean; css?: string }[] }[]; aria: AriaData; tablesWithoutHeaders: number; autoplayMedia: number; };
   dom: DOMData;
   performance: { totalScripts: number; totalStylesheets: number; renderBlockingScripts: number; renderBlockingStyles: number; asyncScripts: number; deferScripts: number; moduleScripts: number; inlineScripts: number; inlineStyles: number; preloads: number; preloadsWithoutAs: number; preconnects: number; prefetches: number; dnsPrefetches: number; fontsWithoutDisplay: number; webFonts: number; criticalCssInlined: boolean; hasServiceWorker: boolean; htmlSize: number; estimatedWeight: string; };
   security: { isHttps: boolean; mixedContentCount: number; mixedContentUrls: string[]; protocolRelativeCount: number; unsafeExternalLinks: number; hasCSP: boolean; hasXFrameOptions: boolean; hasXContentTypeOptions: boolean; hasReferrerPolicy: boolean; hasCORS: boolean; formWithoutAction: number; passwordFieldWithoutAutocomplete: number; };
@@ -780,6 +780,83 @@ export default function SEOChecker() {
               {results.accessibility.aria?.missingLandmarks && results.accessibility.aria.missingLandmarks.length > 0 && (
                 <div className="mt-4 p-3 bg-yellow-50 rounded-lg">
                   <div className="text-sm font-medium text-yellow-800">Missing Landmarks: {results.accessibility.aria.missingLandmarks.join(', ')}</div>
+                </div>
+              )}
+
+              {/* Contrast Issues (WCAG AA: 4.5:1) */}
+              {results.accessibility.colorContrastIssues > 0 && (
+                <div className="mt-4 p-4 bg-red-50 rounded-lg border border-red-200">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Icons.Alert />
+                    <span className="font-semibold text-red-800">Contrast Issues (WCAG AA: 4.5:1)</span>
+                    <span className="px-2 py-0.5 bg-red-200 text-red-800 rounded-full text-xs">{results.accessibility.colorContrastIssues} issues</span>
+                  </div>
+
+                  {results.accessibility.contrastIssuesList && results.accessibility.contrastIssuesList.length > 0 ? (
+                    <div className="space-y-3">
+                      <div className="text-sm text-red-700 font-medium">Sections with low contrast:</div>
+                      {results.accessibility.contrastIssuesList.map((category, i) => (
+                        <div key={i} className="bg-white/50 rounded-lg p-3">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="font-medium text-gray-800">{category.type}</span>
+                            <span className="text-sm text-red-600">{category.count} issues</span>
+                          </div>
+                          {category.details && category.details.slice(0, 5).map((detail, j) => (
+                            <div key={j} className="mt-2 p-2 bg-gray-50 rounded border-l-2 border-red-400">
+                              <div className="flex items-center gap-3 mb-2">
+                                <div className="flex items-center gap-1">
+                                  <span className="text-xs text-gray-500">FG:</span>
+                                  <div className="w-5 h-5 rounded border border-gray-300" style={{ backgroundColor: detail.foreground }} title={detail.foreground} />
+                                  <code className="text-xs bg-gray-100 px-1 rounded">{detail.foreground}</code>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  <span className="text-xs text-gray-500">BG:</span>
+                                  <div className="w-5 h-5 rounded border border-gray-300" style={{ backgroundColor: detail.background }} title={detail.background} />
+                                  <code className="text-xs bg-gray-100 px-1 rounded">{detail.background}</code>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  <span className="text-xs text-gray-500">Ratio:</span>
+                                  <span className={`font-mono text-sm font-bold ${detail.ratio >= 4.5 ? 'text-green-600' : detail.ratio >= 3 ? 'text-yellow-600' : 'text-red-600'}`}>
+                                    {detail.ratio.toFixed(2)}:1
+                                  </span>
+                                </div>
+                              </div>
+                              {detail.element && (
+                                <code className="block text-xs bg-gray-800 text-green-400 p-2 rounded overflow-x-auto whitespace-pre">
+                                  {detail.element}
+                                </code>
+                              )}
+                              {detail.css && (
+                                <div className="mt-1 text-xs text-gray-600">
+                                  <span className="font-medium">CSS: </span>
+                                  <code className="bg-gray-100 px-1 rounded">{detail.css}</code>
+                                </div>
+                              )}
+                              <div className="mt-2 flex gap-2">
+                                <span className={`px-2 py-0.5 rounded text-xs ${detail.wcagAA ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                                  WCAG AA: {detail.wcagAA ? '✓ Pass' : '✗ Failed'}
+                                </span>
+                                <span className={`px-2 py-0.5 rounded text-xs ${detail.wcagAAA ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                                  WCAG AAA: {detail.wcagAAA ? '✓ Pass' : '✗ Failed'}
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+                          {category.details && category.details.length > 5 && (
+                            <div className="mt-2 text-xs text-gray-500">+ {category.details.length - 5} more issues</div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-sm text-red-700">
+                      {results.accessibility.colorContrastIssues} elements have insufficient color contrast (below 4.5:1 ratio for normal text).
+                    </div>
+                  )}
+
+                  <div className="mt-3 text-xs text-gray-600 bg-white/50 p-2 rounded">
+                    <strong>WCAG Guidelines:</strong> Normal text requires 4.5:1 contrast ratio (AA) or 7:1 (AAA). Large text (18pt+) requires 3:1 (AA) or 4.5:1 (AAA).
+                  </div>
                 </div>
               )}
             </Section>

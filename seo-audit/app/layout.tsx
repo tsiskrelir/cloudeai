@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
+
   title: 'SEO Audit | Web & SEO',
   description: 'Universal SEO audit tool - 50+ for your website',
 };
