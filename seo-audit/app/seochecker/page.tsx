@@ -23,6 +23,22 @@ interface ReadabilityData { fleschScore: number; fleschGrade: string; avgSentenc
 interface AriaData { landmarks: { main: number; nav: number; header: number; footer: number; aside: number; search: number; form: number; region: number }; ariaLabels: number; ariaDescribedby: number; ariaLabelledby: number; ariaHidden: number; ariaLive: number; ariaExpanded: number; roles: string[]; missingLandmarks: string[]; }
 interface DOMData { totalElements: number; maxDepth: number; averageDepth: number; totalNodes: number; textNodes: number; commentNodes: number; inlineStyles: number; inlineScripts: number; emptyElements: number; deprecatedElements: string[]; duplicateIds: string[]; elementCounts: Record<string, number>; }
 
+// PageSpeed types
+interface PageSpeedMetrics { fcp: number; lcp: number; cls: number; tbt: number; si: number; tti: number; }
+interface PageSpeedResult { score: number; metrics: PageSpeedMetrics; opportunities: { id: string; title: string; description: string; savings: string }[]; diagnostics: { id: string; title: string; description: string }[]; error?: string; }
+
+// Crawler types
+interface CrawlPage { url: string; status: number; title: string; depth: number; internalLinks: number; externalLinks: number; wordCount: number; hasH1: boolean; hasMetaDesc: boolean; issues: string[]; responseTime: number; }
+interface CrawlResult { pages: CrawlPage[]; totalPages: number; totalInternalLinks: number; totalExternalLinks: number; brokenLinks: { url: string; status: number; foundOn: string }[]; redirects: { from: string; to: string; status: number }[]; duplicateTitles: { title: string; urls: string[] }[]; duplicateDescriptions: { description: string; urls: string[] }[]; orphanPages: string[]; deepPages: { url: string; depth: number }[]; crawlTime: number; errors: string[]; }
+
+// Robots.txt types
+interface RobotsRule { userAgent: string; rules: { type: 'allow' | 'disallow'; path: string }[]; crawlDelay?: number; }
+interface RobotsValidation { isValid: boolean; errors: string[]; warnings: string[]; sitemaps: string[]; blocksGooglebot: boolean; blocksAll: boolean; rules: RobotsRule[]; }
+
+// Sitemap types
+interface SitemapUrl { loc: string; lastmod?: string; changefreq?: string; priority?: number; }
+interface SitemapData { urls: SitemapUrl[]; sitemapIndexUrls: string[]; totalUrls: number; errors: string[]; }
+
 interface SiteTreeNode {
   path: string;
   fullUrl: string;
@@ -117,6 +133,12 @@ const Icons = {
   File: () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>,
   DOM: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z" /></svg>,
   Chart: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>,
+  Speed: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>,
+  Robot: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>,
+  Crawler: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9c0 1.657-4.03 3-9 3s-9-1.343-9-3m18 0c0-1.657-4.03-3-9-3s-9 1.343-9 3m9 9a9 9 0 01-9-9m9 9c-1.657 0-3-4.03-3-9s1.343-9 3-9" /></svg>,
+  Tree: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" /></svg>,
+  External: () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>,
+  Play: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
 };
 
 // Chart Components
@@ -239,7 +261,15 @@ export default function SEOChecker() {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [isDragging, setIsDragging] = useState(false);
 
-  const allSections = ['overview', 'issues', 'passed', 'sitemap', 'technical', 'content', 'security', 'international', 'links', 'images', 'schema', 'social', 'platform', 'accessibility', 'dom', 'performance', 'ai', 'trust'];
+  // New feature states
+  const [pageSpeed, setPageSpeed] = useState<{ mobile: PageSpeedResult | null; desktop: PageSpeedResult | null }>({ mobile: null, desktop: null });
+  const [pageSpeedLoading, setPageSpeedLoading] = useState(false);
+  const [crawlResult, setCrawlResult] = useState<{ crawl: CrawlResult; sitemap: SitemapData; robots: { content: string; validation: RobotsValidation } | null } | null>(null);
+  const [crawlLoading, setCrawlLoading] = useState(false);
+  const [crawlProgress, setCrawlProgress] = useState('');
+  const [activeTab, setActiveTab] = useState<'audit' | 'pagespeed' | 'crawler'>('audit');
+
+  const allSections = ['overview', 'issues', 'passed', 'sitemap', 'technical', 'content', 'security', 'international', 'links', 'images', 'schema', 'social', 'platform', 'accessibility', 'dom', 'performance', 'ai', 'trust', 'pagespeed', 'robots', 'crawl'];
 
   const handleAnalyze = async () => {
     setError('');
@@ -265,6 +295,38 @@ export default function SEOChecker() {
       reader.readAsText(file);
     }
   }, []);
+
+  // PageSpeed Analysis
+  const handlePageSpeed = async () => {
+    if (!url) return;
+    setPageSpeedLoading(true);
+    setPageSpeed({ mobile: null, desktop: null });
+    try {
+      const [mobileRes, desktopRes] = await Promise.all([
+        fetch('/api/pagespeed', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url, strategy: 'mobile' }) }),
+        fetch('/api/pagespeed', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url, strategy: 'desktop' }) })
+      ]);
+      const [mobile, desktop] = await Promise.all([mobileRes.json(), desktopRes.json()]);
+      setPageSpeed({ mobile, desktop });
+    } catch (e) { setError('PageSpeed analysis failed'); }
+    finally { setPageSpeedLoading(false); }
+  };
+
+  // Site Crawler
+  const handleCrawl = async () => {
+    if (!url) return;
+    setCrawlLoading(true);
+    setCrawlResult(null);
+    setCrawlProgress('Starting crawl...');
+    try {
+      const res = await fetch('/api/crawl', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url, maxPages: 30, maxDepth: 3 }) });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Crawl failed');
+      setCrawlResult(data);
+      setCrawlProgress('');
+    } catch (e) { setError(e instanceof Error ? e.message : 'Crawl failed'); setCrawlProgress(''); }
+    finally { setCrawlLoading(false); }
+  };
 
   const exportData = (format: 'json' | 'csv') => {
     if (!results) return;
@@ -306,13 +368,29 @@ export default function SEOChecker() {
     <div className="min-h-screen" style={{ background: `linear-gradient(135deg, ${COLORS.primary} 0%, ${COLORS.primaryLight} 50%, ${COLORS.primary} 100%)` }}>
       {/* Header */}
       <div style={{ background: `linear-gradient(90deg, ${COLORS.primary} 0%, ${COLORS.primaryLight} 50%, #2a4a9a 100%)` }} className="text-white">
-        <div className="max-w-6xl mx-auto px-6 py-8">
-          <h1 className="text-3xl font-bold" style={{ color: COLORS.accent }}>SEO Audit</h1>
-          <p style={{ color: COLORS.secondary }} className="mt-1">Website SEO Analysis • {results ? `${results.summary.totalChecks} checks completed` : '75+ checks'}</p>
+        <div className="max-w-6xl mx-auto px-6 py-6">
+          <h1 className="text-3xl font-bold" style={{ color: COLORS.accent }}>SEO Audit Tool</h1>
+          <p style={{ color: COLORS.secondary }} className="mt-1">Complete On-Page & Technical SEO Analysis</p>
+
+          {/* Feature Tabs */}
+          <div className="flex gap-2 mt-4">
+            <button onClick={() => setActiveTab('audit')} className={`px-4 py-2 rounded-lg font-medium transition-all ${activeTab === 'audit' ? 'text-white' : 'text-white/60 hover:text-white/80'}`} style={activeTab === 'audit' ? { backgroundColor: COLORS.accent, color: COLORS.primary } : {}}>
+              <span className="flex items-center gap-2"><Icons.Search /> SEO Audit</span>
+            </button>
+            <button onClick={() => setActiveTab('pagespeed')} className={`px-4 py-2 rounded-lg font-medium transition-all ${activeTab === 'pagespeed' ? 'text-white' : 'text-white/60 hover:text-white/80'}`} style={activeTab === 'pagespeed' ? { backgroundColor: COLORS.secondary, color: COLORS.primary } : {}}>
+              <span className="flex items-center gap-2"><Icons.Speed /> PageSpeed</span>
+            </button>
+            <button onClick={() => setActiveTab('crawler')} className={`px-4 py-2 rounded-lg font-medium transition-all ${activeTab === 'crawler' ? 'text-white' : 'text-white/60 hover:text-white/80'}`} style={activeTab === 'crawler' ? { backgroundColor: COLORS.highlight, color: 'white' } : {}}>
+              <span className="flex items-center gap-2"><Icons.Crawler /> Site Crawler</span>
+            </button>
+          </div>
         </div>
       </div>
 
       <div className="max-w-6xl mx-auto px-6 py-8">
+        {/* SEO Audit Tab */}
+        {activeTab === 'audit' && (
+          <>
         {/* Input */}
         <div className="bg-white rounded-2xl shadow-xl p-6 mb-8">
           <div className="flex gap-3 mb-5">
@@ -1049,11 +1127,377 @@ export default function SEOChecker() {
             </Section>
           </div>
         )}
+          </>
+        )}
+
+        {/* PageSpeed Tab */}
+        {activeTab === 'pagespeed' && (
+          <div className="space-y-6">
+            {/* PageSpeed Input */}
+            <div className="bg-white rounded-2xl shadow-xl p-6">
+              <h2 className="text-xl font-bold mb-4" style={{ color: COLORS.primary }}>Google PageSpeed Insights</h2>
+              <p className="text-gray-500 mb-4">Analyze your page performance using Google&apos;s PageSpeed Insights API</p>
+              <div className="flex gap-3">
+                <div className="flex-1 relative">
+                  <div className="absolute left-4 top-1/2 -translate-y-1/2" style={{ color: COLORS.secondary }}><Icons.Globe /></div>
+                  <input type="text" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://example.com" className="w-full pl-12 pr-4 py-3 border-2 rounded-xl outline-none focus:ring-2" style={{ borderColor: COLORS.primary }} onKeyDown={(e) => e.key === 'Enter' && handlePageSpeed()} />
+                </div>
+                <button onClick={handlePageSpeed} disabled={pageSpeedLoading || !url} className="px-8 py-3 font-semibold rounded-xl disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center gap-2 transition-all hover:opacity-90" style={{ backgroundColor: COLORS.secondary, color: COLORS.primary }}>
+                  {pageSpeedLoading ? <Icons.Loader /> : <Icons.Speed />} Analyze Speed
+                </button>
+              </div>
+            </div>
+
+            {/* PageSpeed Results */}
+            {(pageSpeed.mobile || pageSpeed.desktop) && (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Mobile Results */}
+                {pageSpeed.mobile && (
+                  <div className="bg-white rounded-2xl shadow-xl p-6">
+                    <div className="flex items-center gap-3 mb-4">
+                      <span className="text-2xl">📱</span>
+                      <h3 className="text-xl font-bold" style={{ color: COLORS.primary }}>Mobile</h3>
+                    </div>
+                    {pageSpeed.mobile.error ? (
+                      <div className="p-4 bg-red-50 text-red-700 rounded-lg">{pageSpeed.mobile.error}</div>
+                    ) : (
+                      <>
+                        <div className="flex items-center justify-center mb-6">
+                          <div className="relative">
+                            <DonutChart value={pageSpeed.mobile.score} size={120} strokeWidth={12} color={getScoreColor(pageSpeed.mobile.score)} />
+                            <div className="absolute inset-0 flex items-center justify-center">
+                              <span className="text-3xl font-bold" style={{ color: getScoreColor(pageSpeed.mobile.score) }}>{pageSpeed.mobile.score}</span>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-3 gap-3 mb-4">
+                          <div className="text-center p-3 bg-gray-50 rounded-lg">
+                            <div className="text-lg font-bold" style={{ color: pageSpeed.mobile.metrics.lcp > 2500 ? '#ef4444' : pageSpeed.mobile.metrics.lcp > 1800 ? '#f59e0b' : '#10b981' }}>{(pageSpeed.mobile.metrics.lcp / 1000).toFixed(1)}s</div>
+                            <div className="text-xs text-gray-500">LCP</div>
+                          </div>
+                          <div className="text-center p-3 bg-gray-50 rounded-lg">
+                            <div className="text-lg font-bold" style={{ color: pageSpeed.mobile.metrics.cls > 0.25 ? '#ef4444' : pageSpeed.mobile.metrics.cls > 0.1 ? '#f59e0b' : '#10b981' }}>{pageSpeed.mobile.metrics.cls}</div>
+                            <div className="text-xs text-gray-500">CLS</div>
+                          </div>
+                          <div className="text-center p-3 bg-gray-50 rounded-lg">
+                            <div className="text-lg font-bold" style={{ color: pageSpeed.mobile.metrics.fcp > 3000 ? '#ef4444' : pageSpeed.mobile.metrics.fcp > 1800 ? '#f59e0b' : '#10b981' }}>{(pageSpeed.mobile.metrics.fcp / 1000).toFixed(1)}s</div>
+                            <div className="text-xs text-gray-500">FCP</div>
+                          </div>
+                        </div>
+                        {pageSpeed.mobile.opportunities.length > 0 && (
+                          <div className="mt-4">
+                            <h4 className="font-medium text-gray-700 mb-2">Opportunities</h4>
+                            <div className="space-y-2">
+                              {pageSpeed.mobile.opportunities.map((opp, i) => (
+                                <div key={i} className="p-2 bg-yellow-50 rounded text-sm">
+                                  <div className="font-medium text-yellow-800">{opp.title}</div>
+                                  {opp.savings && <div className="text-yellow-600 text-xs">{opp.savings}</div>}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                )}
+
+                {/* Desktop Results */}
+                {pageSpeed.desktop && (
+                  <div className="bg-white rounded-2xl shadow-xl p-6">
+                    <div className="flex items-center gap-3 mb-4">
+                      <span className="text-2xl">🖥️</span>
+                      <h3 className="text-xl font-bold" style={{ color: COLORS.primary }}>Desktop</h3>
+                    </div>
+                    {pageSpeed.desktop.error ? (
+                      <div className="p-4 bg-red-50 text-red-700 rounded-lg">{pageSpeed.desktop.error}</div>
+                    ) : (
+                      <>
+                        <div className="flex items-center justify-center mb-6">
+                          <div className="relative">
+                            <DonutChart value={pageSpeed.desktop.score} size={120} strokeWidth={12} color={getScoreColor(pageSpeed.desktop.score)} />
+                            <div className="absolute inset-0 flex items-center justify-center">
+                              <span className="text-3xl font-bold" style={{ color: getScoreColor(pageSpeed.desktop.score) }}>{pageSpeed.desktop.score}</span>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-3 gap-3 mb-4">
+                          <div className="text-center p-3 bg-gray-50 rounded-lg">
+                            <div className="text-lg font-bold" style={{ color: pageSpeed.desktop.metrics.lcp > 2500 ? '#ef4444' : pageSpeed.desktop.metrics.lcp > 1800 ? '#f59e0b' : '#10b981' }}>{(pageSpeed.desktop.metrics.lcp / 1000).toFixed(1)}s</div>
+                            <div className="text-xs text-gray-500">LCP</div>
+                          </div>
+                          <div className="text-center p-3 bg-gray-50 rounded-lg">
+                            <div className="text-lg font-bold" style={{ color: pageSpeed.desktop.metrics.cls > 0.25 ? '#ef4444' : pageSpeed.desktop.metrics.cls > 0.1 ? '#f59e0b' : '#10b981' }}>{pageSpeed.desktop.metrics.cls}</div>
+                            <div className="text-xs text-gray-500">CLS</div>
+                          </div>
+                          <div className="text-center p-3 bg-gray-50 rounded-lg">
+                            <div className="text-lg font-bold" style={{ color: pageSpeed.desktop.metrics.fcp > 3000 ? '#ef4444' : pageSpeed.desktop.metrics.fcp > 1800 ? '#f59e0b' : '#10b981' }}>{(pageSpeed.desktop.metrics.fcp / 1000).toFixed(1)}s</div>
+                            <div className="text-xs text-gray-500">FCP</div>
+                          </div>
+                        </div>
+                        {pageSpeed.desktop.opportunities.length > 0 && (
+                          <div className="mt-4">
+                            <h4 className="font-medium text-gray-700 mb-2">Opportunities</h4>
+                            <div className="space-y-2">
+                              {pageSpeed.desktop.opportunities.map((opp, i) => (
+                                <div key={i} className="p-2 bg-yellow-50 rounded text-sm">
+                                  <div className="font-medium text-yellow-800">{opp.title}</div>
+                                  {opp.savings && <div className="text-yellow-600 text-xs">{opp.savings}</div>}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Crawler Tab */}
+        {activeTab === 'crawler' && (
+          <div className="space-y-6">
+            {/* Crawler Input */}
+            <div className="bg-white rounded-2xl shadow-xl p-6">
+              <h2 className="text-xl font-bold mb-4" style={{ color: COLORS.primary }}>Site Crawler & Robots.txt Validator</h2>
+              <p className="text-gray-500 mb-4">Crawl your site to find issues, validate robots.txt, and analyze sitemap</p>
+              <div className="flex gap-3">
+                <div className="flex-1 relative">
+                  <div className="absolute left-4 top-1/2 -translate-y-1/2" style={{ color: COLORS.highlight }}><Icons.Globe /></div>
+                  <input type="text" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://example.com" className="w-full pl-12 pr-4 py-3 border-2 rounded-xl outline-none focus:ring-2" style={{ borderColor: COLORS.primary }} onKeyDown={(e) => e.key === 'Enter' && handleCrawl()} />
+                </div>
+                <button onClick={handleCrawl} disabled={crawlLoading || !url} className="px-8 py-3 font-semibold rounded-xl disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center gap-2 transition-all hover:opacity-90" style={{ backgroundColor: COLORS.highlight, color: 'white' }}>
+                  {crawlLoading ? <Icons.Loader /> : <Icons.Play />} Start Crawl
+                </button>
+              </div>
+              {crawlProgress && <div className="mt-3 text-sm" style={{ color: COLORS.highlight }}>{crawlProgress}</div>}
+            </div>
+
+            {/* Crawler Results */}
+            {crawlResult && (
+              <div className="space-y-6">
+                {/* Crawl Overview */}
+                <div className="bg-white rounded-2xl shadow-xl p-6">
+                  <h3 className="text-xl font-bold mb-4" style={{ color: COLORS.primary }}>Crawl Results</h3>
+                  <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                    <div className="p-4 rounded-lg text-center" style={{ backgroundColor: `${COLORS.primary}10` }}>
+                      <div className="text-2xl font-bold" style={{ color: COLORS.primary }}>{crawlResult.crawl.totalPages}</div>
+                      <div className="text-sm text-gray-500">Pages Crawled</div>
+                    </div>
+                    <div className="p-4 bg-green-50 rounded-lg text-center">
+                      <div className="text-2xl font-bold text-green-700">{crawlResult.crawl.totalInternalLinks}</div>
+                      <div className="text-sm text-gray-500">Internal Links</div>
+                    </div>
+                    <div className="p-4 rounded-lg text-center" style={{ backgroundColor: `${COLORS.secondary}15` }}>
+                      <div className="text-2xl font-bold" style={{ color: COLORS.primary }}>{crawlResult.crawl.totalExternalLinks}</div>
+                      <div className="text-sm text-gray-500">External Links</div>
+                    </div>
+                    <div className={`p-4 rounded-lg text-center ${crawlResult.crawl.brokenLinks.length > 0 ? 'bg-red-50' : 'bg-green-50'}`}>
+                      <div className={`text-2xl font-bold ${crawlResult.crawl.brokenLinks.length > 0 ? 'text-red-700' : 'text-green-700'}`}>{crawlResult.crawl.brokenLinks.length}</div>
+                      <div className="text-sm text-gray-500">Broken Links</div>
+                    </div>
+                    <div className={`p-4 rounded-lg text-center ${crawlResult.crawl.redirects.length > 0 ? 'bg-yellow-50' : 'bg-green-50'}`}>
+                      <div className={`text-2xl font-bold ${crawlResult.crawl.redirects.length > 0 ? 'text-yellow-700' : 'text-green-700'}`}>{crawlResult.crawl.redirects.length}</div>
+                      <div className="text-sm text-gray-500">Redirects</div>
+                    </div>
+                    <div className="p-4 bg-gray-50 rounded-lg text-center">
+                      <div className="text-2xl font-bold text-gray-700">{(crawlResult.crawl.crawlTime / 1000).toFixed(1)}s</div>
+                      <div className="text-sm text-gray-500">Crawl Time</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Robots.txt Validation */}
+                {crawlResult.robots && (
+                  <div className="bg-white rounded-2xl shadow-xl p-6">
+                    <h3 className="text-xl font-bold mb-4 flex items-center gap-2" style={{ color: COLORS.primary }}>
+                      <Icons.Robot /> Robots.txt Validation
+                      <span className={`px-2 py-0.5 rounded-full text-sm ${crawlResult.robots.validation.isValid ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                        {crawlResult.robots.validation.isValid ? 'Valid' : 'Has Errors'}
+                      </span>
+                    </h3>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      {/* Validation Results */}
+                      <div>
+                        <div className="grid grid-cols-2 gap-3 mb-4">
+                          <div className={`p-3 rounded-lg text-center ${crawlResult.robots.validation.blocksGooglebot ? 'bg-red-50' : 'bg-green-50'}`}>
+                            <div className={`font-bold ${crawlResult.robots.validation.blocksGooglebot ? 'text-red-700' : 'text-green-700'}`}>
+                              {crawlResult.robots.validation.blocksGooglebot ? 'BLOCKED' : 'ALLOWED'}
+                            </div>
+                            <div className="text-xs text-gray-500">Googlebot</div>
+                          </div>
+                          <div className={`p-3 rounded-lg text-center ${crawlResult.robots.validation.blocksAll ? 'bg-red-50' : 'bg-green-50'}`}>
+                            <div className={`font-bold ${crawlResult.robots.validation.blocksAll ? 'text-red-700' : 'text-green-700'}`}>
+                              {crawlResult.robots.validation.blocksAll ? 'BLOCKS ALL' : 'OK'}
+                            </div>
+                            <div className="text-xs text-gray-500">All Bots</div>
+                          </div>
+                        </div>
+                        {crawlResult.robots.validation.errors.length > 0 && (
+                          <div className="mb-3">
+                            <div className="text-sm font-medium text-red-800 mb-2">Errors:</div>
+                            {crawlResult.robots.validation.errors.map((err, i) => (
+                              <div key={i} className="text-sm text-red-700 bg-red-50 p-2 rounded mb-1">{err}</div>
+                            ))}
+                          </div>
+                        )}
+                        {crawlResult.robots.validation.warnings.length > 0 && (
+                          <div className="mb-3">
+                            <div className="text-sm font-medium text-yellow-800 mb-2">Warnings:</div>
+                            {crawlResult.robots.validation.warnings.map((warn, i) => (
+                              <div key={i} className="text-sm text-yellow-700 bg-yellow-50 p-2 rounded mb-1">{warn}</div>
+                            ))}
+                          </div>
+                        )}
+                        {crawlResult.robots.validation.sitemaps.length > 0 && (
+                          <div>
+                            <div className="text-sm font-medium text-gray-700 mb-2">Sitemaps in robots.txt:</div>
+                            {crawlResult.robots.validation.sitemaps.map((sm, i) => (
+                              <div key={i} className="text-sm text-blue-600 bg-blue-50 p-2 rounded mb-1 truncate">{sm}</div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      {/* robots.txt Content */}
+                      <div>
+                        <div className="text-sm font-medium text-gray-700 mb-2">robots.txt Content:</div>
+                        <pre className="bg-gray-900 text-green-400 p-4 rounded-lg text-xs overflow-auto max-h-64 font-mono">
+                          {crawlResult.robots.content}
+                        </pre>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Sitemap Analysis */}
+                {crawlResult.sitemap && crawlResult.sitemap.totalUrls > 0 && (
+                  <div className="bg-white rounded-2xl shadow-xl p-6">
+                    <h3 className="text-xl font-bold mb-4 flex items-center gap-2" style={{ color: COLORS.primary }}>
+                      <Icons.Sitemap /> Sitemap Analysis
+                      <span className="px-2 py-0.5 rounded-full text-sm" style={{ backgroundColor: `${COLORS.accent}30`, color: COLORS.primary }}>
+                        {crawlResult.sitemap.totalUrls} URLs
+                      </span>
+                    </h3>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      <div>
+                        <div className="text-sm font-medium text-gray-700 mb-3">Sitemap URLs (first 20):</div>
+                        <div className="max-h-80 overflow-auto space-y-1">
+                          {crawlResult.sitemap.urls.slice(0, 20).map((sitemapUrl, i) => (
+                            <div key={i} className="flex items-center gap-2 p-2 bg-gray-50 rounded text-sm">
+                              <Icons.File />
+                              <a href={sitemapUrl.loc} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline truncate flex-1">{sitemapUrl.loc}</a>
+                              {sitemapUrl.lastmod && <span className="text-xs text-gray-400">{sitemapUrl.lastmod}</span>}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      {crawlResult.sitemap.sitemapIndexUrls.length > 0 && (
+                        <div>
+                          <div className="text-sm font-medium text-gray-700 mb-3">Sitemap Index:</div>
+                          <div className="space-y-1">
+                            {crawlResult.sitemap.sitemapIndexUrls.map((idx, i) => (
+                              <div key={i} className="p-2 bg-blue-50 rounded text-sm text-blue-700 truncate">{idx}</div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Crawled Pages */}
+                <div className="bg-white rounded-2xl shadow-xl p-6">
+                  <h3 className="text-xl font-bold mb-4" style={{ color: COLORS.primary }}>Crawled Pages</h3>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b">
+                          <th className="text-left py-2 px-3">URL</th>
+                          <th className="text-center py-2 px-3">Status</th>
+                          <th className="text-center py-2 px-3">Depth</th>
+                          <th className="text-center py-2 px-3">Words</th>
+                          <th className="text-center py-2 px-3">Links</th>
+                          <th className="text-left py-2 px-3">Issues</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {crawlResult.crawl.pages.slice(0, 30).map((page, i) => (
+                          <tr key={i} className="border-b hover:bg-gray-50">
+                            <td className="py-2 px-3">
+                              <div className="truncate max-w-xs text-blue-600">{page.url.replace(/^https?:\/\/[^/]+/, '')}</div>
+                              <div className="text-xs text-gray-400 truncate">{page.title || '(no title)'}</div>
+                            </td>
+                            <td className="text-center py-2 px-3">
+                              <span className={`px-2 py-0.5 rounded text-xs ${page.status === 200 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{page.status}</span>
+                            </td>
+                            <td className="text-center py-2 px-3">{page.depth}</td>
+                            <td className="text-center py-2 px-3">{page.wordCount}</td>
+                            <td className="text-center py-2 px-3">{page.internalLinks}/{page.externalLinks}</td>
+                            <td className="py-2 px-3">
+                              {page.issues.length > 0 ? (
+                                <div className="flex flex-wrap gap-1">
+                                  {page.issues.slice(0, 2).map((issue, j) => (
+                                    <span key={j} className="px-1.5 py-0.5 bg-yellow-100 text-yellow-700 rounded text-xs">{issue}</span>
+                                  ))}
+                                  {page.issues.length > 2 && <span className="text-xs text-gray-400">+{page.issues.length - 2}</span>}
+                                </div>
+                              ) : (
+                                <span className="text-green-600 text-xs">✓ OK</span>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* Issues Summary */}
+                {(crawlResult.crawl.brokenLinks.length > 0 || crawlResult.crawl.duplicateTitles.length > 0) && (
+                  <div className="bg-white rounded-2xl shadow-xl p-6">
+                    <h3 className="text-xl font-bold mb-4 text-red-700">Issues Found</h3>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      {crawlResult.crawl.brokenLinks.length > 0 && (
+                        <div>
+                          <h4 className="font-medium text-red-800 mb-2">Broken Links ({crawlResult.crawl.brokenLinks.length})</h4>
+                          <div className="space-y-2 max-h-60 overflow-auto">
+                            {crawlResult.crawl.brokenLinks.map((link, i) => (
+                              <div key={i} className="p-2 bg-red-50 rounded text-sm">
+                                <div className="font-mono text-red-700 truncate">{link.url}</div>
+                                <div className="text-xs text-red-500">Status: {link.status} | Found on: {link.foundOn}</div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {crawlResult.crawl.duplicateTitles.length > 0 && (
+                        <div>
+                          <h4 className="font-medium text-yellow-800 mb-2">Duplicate Titles ({crawlResult.crawl.duplicateTitles.length})</h4>
+                          <div className="space-y-2 max-h-60 overflow-auto">
+                            {crawlResult.crawl.duplicateTitles.map((dup, i) => (
+                              <div key={i} className="p-2 bg-yellow-50 rounded text-sm">
+                                <div className="font-medium text-yellow-800 truncate">{dup.title}</div>
+                                <div className="text-xs text-yellow-600">{dup.urls.length} pages share this title</div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Footer */}
-      <div className="text-center py-8 text-gray-400 text-sm">
-        SEO Audit • 75+ checks • {new Date().getFullYear()}
+      <div className="text-center py-8 text-white/60 text-sm">
+        SEO Audit Tool • PageSpeed • Site Crawler • {new Date().getFullYear()}
       </div>
     </div>
   );
