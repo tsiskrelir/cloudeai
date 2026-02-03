@@ -37,13 +37,13 @@ export async function POST(request: NextRequest) {
   try {
     const ip = request.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown';
     if (!checkRate(ip)) {
-      return NextResponse.json({ error: 'You run out of limits. Wait 1 minute.' }, { status: 429 });
+      return NextResponse.json({ error: 'Rate limit exceeded. Please wait 1 minute.' }, { status: 429 });
     }
     
     const { url, html: providedHtml } = await request.json();
     
     if (!url && !providedHtml) {
-      return NextResponse.json({ error: 'URL or HTML is requested' }, { status: 400 });
+      return NextResponse.json({ error: 'URL or HTML is required' }, { status: 400 });
     }
     
     let html: string;
@@ -66,10 +66,10 @@ export async function POST(request: NextRequest) {
         fetchMethod = 'url';
         
         if (html.length < 1000 && html.toLowerCase().includes('cloudflare')) {
-          return NextResponse.json({ error: 'საიტი დაცულია. გამოიყენეთ "HTML ჩასმა" რეჟიმი.', blocked: true }, { status: 403 });
+          return NextResponse.json({ error: 'Site is protected by Cloudflare. Use "Paste HTML" mode instead.', blocked: true }, { status: 403 });
         }
       } catch (e) {
-        return NextResponse.json({ error: `URL ვერ ჩაიტვირთა: ${e instanceof Error ? e.message : 'შეცდომა'}` }, { status: 502 });
+        return NextResponse.json({ error: `URL could not be loaded: ${e instanceof Error ? e.message : 'Error'}` }, { status: 502 });
       }
     }
     
@@ -107,11 +107,11 @@ export async function POST(request: NextRequest) {
             severity: 'low' as const,
             category: 'AI',
             issue: 'No llms.txt file found',
-            issueGe: 'llms.txt ფაილი ვერ მოიძებნა',
+            issueGe: 'No llms.txt file found',
             location: '/llms.txt',
             fix: 'Create llms.txt for AI crawler guidance',
-            fixGe: 'შექმენით llms.txt AI კრაულერებისთვის',
-            details: `დაბალი პრიორიტეტი. llms.txt არის ახალი სტანდარტი AI კრაულერებისთვის (ChatGPT, Claude და ა.შ.). მისი დამატება ეხმარება AI სისტემებს თქვენი საიტის უკეთ გაგებაში.`
+            fixGe: 'Create llms.txt for AI crawler guidance',
+            details: `Low priority. llms.txt is a new standard for AI crawlers (ChatGPT, Claude, etc.). Adding it helps AI systems better understand your site.`
           });
         }
 
@@ -130,13 +130,13 @@ export async function POST(request: NextRequest) {
             result.issues.push({
               id: 'redirect-links',
               severity: 'medium' as const,
-              category: 'ბმულები',
+              category: 'Links',
               issue: `${redirectResults.length} link(s) pointing to redirects (301/302)`,
-              issueGe: `${redirectResults.length} ბმული მიმართავს გადამისამართებაზე (301/302)`,
+              issueGe: `${redirectResults.length} link(s) pointing to redirects (301/302)`,
               location: '<a href>',
               fix: 'Update links to point directly to final URLs',
-              fixGe: 'განაახლეთ ბმულები საბოლოო URL-ებზე',
-              details: `საშუალო პრიორიტეტი. გადამისამართებები ანელებს გვერდის ჩატვირთვას და კარგავს PageRank-ს. ნაპოვნი: ${redirectResults.slice(0, 3).map(r => `${r.href} → ${r.status}`).join('; ')}`
+              fixGe: 'Update links to point directly to final URLs',
+              details: `Medium priority. Redirects slow down page loading and leak PageRank. Found: ${redirectResults.slice(0, 3).map(r => `${r.href} → ${r.status}`).join('; ')}`
             });
           }
         }
@@ -155,13 +155,13 @@ export async function POST(request: NextRequest) {
             result.issues.push({
               id: 'broken-external-links',
               severity: 'high' as const,
-              category: 'ბმულები',
+              category: 'Links',
               issue: `${brokenExternalLinks.length} external link(s) are broken (404/error)`,
-              issueGe: `${brokenExternalLinks.length} გარე ბმული გატეხილია (404/შეცდომა)`,
+              issueGe: `${brokenExternalLinks.length} external link(s) are broken (404/error)`,
               location: '<a href>',
               fix: 'Remove or update broken external links',
-              fixGe: 'წაშალეთ ან განაახლეთ გატეხილი გარე ბმულები',
-              details: `მაღალი პრიორიტეტი. გატეხილი გარე ბმულები აუარესებს მომხმარებლის გამოცდილებას და SEO-ს. ნაპოვნი: ${brokenExternalLinks.slice(0, 3).map(r => `${r.href} → ${r.status || r.error}`).join('; ')}`
+              fixGe: 'Remove or update broken external links',
+              details: `High priority. Broken external links harm user experience and SEO. Found: ${brokenExternalLinks.slice(0, 3).map(r => `${r.href} → ${r.status || r.error}`).join('; ')}`
             });
           }
         }
@@ -181,25 +181,25 @@ export async function POST(request: NextRequest) {
           result.issues.push({
             id: 'ssl-invalid',
             severity: 'critical' as const,
-            category: 'უსაფრთხოება',
+            category: 'Security',
             issue: `SSL certificate issue: ${sslResult.error || 'Invalid or expired'}`,
-            issueGe: `SSL სერტიფიკატის პრობლემა: ${sslResult.error || 'არავალიდური ან ვადაგასული'}`,
+            issueGe: `SSL certificate issue: ${sslResult.error || 'Invalid or expired'}`,
             location: 'HTTPS',
             fix: 'Renew or fix SSL certificate',
-            fixGe: 'განაახლეთ ან გაასწორეთ SSL სერტიფიკატი',
-            details: `კრიტიკული პრიორიტეტი. SSL სერტიფიკატი არავალიდურია ან ვადაგასულია.`
+            fixGe: 'Renew or fix SSL certificate',
+            details: `Critical priority. SSL certificate is invalid or expired.`
           });
         } else if (sslResult.daysUntilExpiry !== undefined && sslResult.daysUntilExpiry < 30) {
           result.issues.push({
             id: 'ssl-expiring-soon',
             severity: 'high' as const,
-            category: 'უსაფრთხოება',
+            category: 'Security',
             issue: `SSL certificate expires in ${sslResult.daysUntilExpiry} days`,
-            issueGe: `SSL სერტიფიკატი იწურება ${sslResult.daysUntilExpiry} დღეში`,
+            issueGe: `SSL certificate expires in ${sslResult.daysUntilExpiry} days`,
             location: 'HTTPS',
             fix: 'Renew SSL certificate before expiry',
-            fixGe: 'განაახლეთ SSL სერტიფიკატი ვადის გასვლამდე',
-            details: `მაღალი პრიორიტეტი. SSL სერტიფიკატი იწურება ${sslResult.validTo}-ზე. გასდეთ ${sslResult.issuer || 'გამცემი'}.`
+            fixGe: 'Renew SSL certificate before expiry',
+            details: `High priority. SSL certificate expires on ${sslResult.validTo}. Issuer: ${sslResult.issuer || 'Unknown'}.`
           });
         }
 
@@ -215,13 +215,13 @@ export async function POST(request: NextRequest) {
           result.issues.push({
             id: 'security-headers-missing',
             severity: 'medium' as const,
-            category: 'უსაფრთხოება',
+            category: 'Security',
             issue: `Missing ${securityHeadersResult.issues.length} security headers`,
-            issueGe: `აკლია ${securityHeadersResult.issues.length} უსაფრთხოების ჰედერი`,
+            issueGe: `Missing ${securityHeadersResult.issues.length} security headers`,
             location: 'HTTP Headers',
             fix: 'Add missing security headers to server config',
-            fixGe: 'დაამატეთ აკლებული უსაფრთხოების ჰედერები სერვერის კონფიგურაციაში',
-            details: `საშუალო პრიორიტეტი. უსაფრთხოების ქულა: ${securityHeadersResult.score}/100. აკლია: ${securityHeadersResult.issues.join(', ')}`
+            fixGe: 'Add missing security headers to server config',
+            details: `Medium priority. Security score: ${securityHeadersResult.score}/100. Missing: ${securityHeadersResult.issues.join(', ')}`
           });
         }
 
@@ -235,13 +235,13 @@ export async function POST(request: NextRequest) {
             result.issues.push({
               id: 'page-not-in-sitemap',
               severity: 'medium' as const,
-              category: 'ტექნიკური',
+              category: 'Technical',
               issue: 'Current page is not in sitemap.xml',
-              issueGe: 'მიმდინარე გვერდი არ არის sitemap.xml-ში',
+              issueGe: 'Current page is not in sitemap.xml',
               location: 'sitemap.xml',
               fix: 'Add page URL to sitemap.xml',
-              fixGe: 'დაამატეთ გვერდის URL sitemap.xml-ში',
-              details: `საშუალო პრიორიტეტი. გვერდი არ არის ნაპოვნი sitemap.xml-ში. sitemap-ში არსებობა აუმჯობესებს ინდექსაციას.`
+              fixGe: 'Add page URL to sitemap.xml',
+              details: `Medium priority. Page is not found in sitemap.xml. Being in sitemap improves indexation.`
             });
           }
         }
@@ -257,13 +257,13 @@ export async function POST(request: NextRequest) {
             result.issues.push({
               id: 'large-images',
               severity: 'medium' as const,
-              category: 'სურათები',
+              category: 'Images',
               issue: `${imageAnalysis.largeCount} image(s) larger than 500KB`,
-              issueGe: `${imageAnalysis.largeCount} სურათი 500KB-ზე მეტია`,
+              issueGe: `${imageAnalysis.largeCount} image(s) larger than 500KB`,
               location: '<img src>',
               fix: 'Compress images or use responsive sizes',
-              fixGe: 'შეკუმშეთ სურათები ან გამოიყენეთ რესპონსიული ზომები',
-              details: `საშუალო პრიორიტეტი. დიდი სურათები ანელებს გვერდის ჩატვირთვას. მაგ: ${imageAnalysis.largeList.slice(0, 2).map(img => `${img.src.split('/').pop()} (${img.size})`).join(', ')}`
+              fixGe: 'Compress images or use responsive sizes',
+              details: `Medium priority. Large images slow down page loading. Examples: ${imageAnalysis.largeList.slice(0, 2).map(img => `${img.src.split('/').pop()} (${img.size})`).join(', ')}`
             });
           }
 
@@ -271,13 +271,13 @@ export async function POST(request: NextRequest) {
             result.issues.push({
               id: 'old-image-formats',
               severity: 'low' as const,
-              category: 'სურათები',
+              category: 'Images',
               issue: `${imageAnalysis.oldFormatCount} image(s) using old formats (not WebP/AVIF)`,
-              issueGe: `${imageAnalysis.oldFormatCount} სურათი იყენებს ძველ ფორმატებს (არა WebP/AVIF)`,
+              issueGe: `${imageAnalysis.oldFormatCount} image(s) using old formats (not WebP/AVIF)`,
               location: '<img src>',
               fix: 'Convert images to WebP or AVIF format',
-              fixGe: 'გადაიყვანეთ სურათები WebP ან AVIF ფორმატში',
-              details: `დაბალი პრიორიტეტი. WebP და AVIF ფორმატები 25-50%-ით პატარაა იგივე ხარისხზე.`
+              fixGe: 'Convert images to WebP or AVIF format',
+              details: `Low priority. WebP and AVIF formats are 25-50% smaller at the same quality.`
             });
           }
         }
@@ -301,11 +301,11 @@ export async function POST(request: NextRequest) {
               severity: 'high' as const,
               category: 'URL',
               issue: `URL has ${highIssues.length} SEO problem(s)`,
-              issueGe: `URL-ს აქვს ${highIssues.length} SEO პრობლემა`,
+              issueGe: `URL has ${highIssues.length} SEO problem(s)`,
               location: finalUrl,
               fix: highIssues.map(i => i.recommendation).join('; '),
               fixGe: highIssues.map(i => i.recommendation).join('; '),
-              details: `მაღალი პრიორიტეტი. პრობლემები:\n${highIssues.map(i => `• ${i.issue}: ${i.recommendation}`).join('\n')}`
+              details: `High priority. Problems:\n${highIssues.map(i => `• ${i.issue}: ${i.recommendation}`).join('\n')}`
             });
           }
 
@@ -315,11 +315,11 @@ export async function POST(request: NextRequest) {
               severity: 'medium' as const,
               category: 'URL',
               issue: `URL has ${mediumIssues.length} SEO improvement(s) needed`,
-              issueGe: `URL-ს სჭირდება ${mediumIssues.length} SEO გაუმჯობესება`,
+              issueGe: `URL has ${mediumIssues.length} SEO improvement(s) needed`,
               location: finalUrl,
               fix: mediumIssues.map(i => i.recommendation).join('; '),
               fixGe: mediumIssues.map(i => i.recommendation).join('; '),
-              details: `საშუალო პრიორიტეტი. გაუმჯობესებები:\n${mediumIssues.map(i => `• ${i.issue}: ${i.recommendation}`).join('\n')}`
+              details: `Medium priority. Improvements needed:\n${mediumIssues.map(i => `• ${i.issue}: ${i.recommendation}`).join('\n')}`
             });
           }
         }
@@ -334,11 +334,11 @@ export async function POST(request: NextRequest) {
             severity: 'high' as const,
             category: 'Technical',
             issue: 'Both www and non-www versions accessible',
-            issueGe: 'ორივე www და non-www ვერსია ხელმისაწვდომია',
+            issueGe: 'Both www and non-www versions accessible',
             location: 'Domain configuration',
             fix: 'Set up 301 redirect from one version to the other',
-            fixGe: 'დააყენეთ 301 გადამისამართება ერთი ვერსიიდან მეორეზე',
-            details: `მაღალი პრიორიტეტი. ${wwwCheck.issue} This causes duplicate content issues and splits link equity.`
+            fixGe: 'Set up 301 redirect from one version to the other',
+            details: `High priority. ${wwwCheck.issue} This causes duplicate content issues and splits link equity.`
           });
         }
 
@@ -352,11 +352,11 @@ export async function POST(request: NextRequest) {
             severity: 'critical' as const,
             category: 'Security',
             issue: 'HTTP version accessible without redirect to HTTPS',
-            issueGe: 'HTTP ვერსია ხელმისაწვდომია HTTPS-ზე გადამისამართების გარეშე',
+            issueGe: 'HTTP version accessible without redirect to HTTPS',
             location: 'Server configuration',
             fix: 'Set up 301 redirect from HTTP to HTTPS',
-            fixGe: 'დააყენეთ 301 გადამისამართება HTTP-დან HTTPS-ზე',
-            details: `კრიტიკული პრიორიტეტი. ${httpsCheck.issue || 'HTTP should always redirect to HTTPS for security.'}`
+            fixGe: 'Set up 301 redirect from HTTP to HTTPS',
+            details: `Critical priority. ${httpsCheck.issue || 'HTTP should always redirect to HTTPS for security.'}`
           });
         }
 
@@ -370,11 +370,11 @@ export async function POST(request: NextRequest) {
             severity: 'medium' as const,
             category: 'Sitemap',
             issue: `Sitemap contains ${sitemapValidation.redirects.length} URL(s) that redirect`,
-            issueGe: `Sitemap შეიცავს ${sitemapValidation.redirects.length} URL-ს რომელიც გადამისამართებაა`,
+            issueGe: `Sitemap contains ${sitemapValidation.redirects.length} URL(s) that redirect`,
             location: 'sitemap.xml',
             fix: 'Update sitemap to use final destination URLs, not redirecting URLs',
-            fixGe: 'განაახლეთ sitemap საბოლოო URL-ებით, არა გადამისამართებით',
-            details: `საშუალო პრიორიტეტი. Sitemap-ში გადამისამართებები:\n${sitemapValidation.redirects.slice(0, 5).map(r => `• ${r.url} → ${r.status} → ${r.location}`).join('\n')}`
+            fixGe: 'Update sitemap to use final destination URLs, not redirecting URLs',
+            details: `Medium priority. Sitemap redirects:\n${sitemapValidation.redirects.slice(0, 5).map(r => `• ${r.url} → ${r.status} → ${r.location}`).join('\n')}`
           });
         }
 
@@ -384,11 +384,11 @@ export async function POST(request: NextRequest) {
             severity: 'high' as const,
             category: 'Sitemap',
             issue: `Sitemap contains ${sitemapValidation.notFound.length} broken URL(s) (404)`,
-            issueGe: `Sitemap შეიცავს ${sitemapValidation.notFound.length} გატეხილ URL-ს (404)`,
+            issueGe: `Sitemap contains ${sitemapValidation.notFound.length} broken URL(s) (404)`,
             location: 'sitemap.xml',
             fix: 'Remove 404 URLs from sitemap or restore the pages',
-            fixGe: 'წაშალეთ 404 URL-ები sitemap-იდან ან აღადგინეთ გვერდები',
-            details: `მაღალი პრიორიტეტი. Sitemap-ში გატეხილი URL-ები:\n${sitemapValidation.notFound.slice(0, 5).map(r => `• ${r.url} → ${r.status}`).join('\n')}`
+            fixGe: 'Remove 404 URLs from sitemap or restore the pages',
+            details: `High priority. Broken URLs in sitemap:\n${sitemapValidation.notFound.slice(0, 5).map(r => `• ${r.url} → ${r.status}`).join('\n')}`
           });
         }
 
@@ -407,8 +407,8 @@ export async function POST(request: NextRequest) {
               issueGe: treeIssue.issue,
               location: treeIssue.url,
               fix: 'Add page to sitemap or check site structure',
-              fixGe: 'დაამატეთ გვერდი sitemap-ში ან შეამოწმეთ საიტის სტრუქტურა',
-              details: `საშუალო პრიორიტეტი. ${treeIssue.issue}`
+              fixGe: 'Add page to sitemap or check site structure',
+              details: `Medium priority. ${treeIssue.issue}`
             });
           }
         }
@@ -419,7 +419,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(result);
   } catch (error) {
     console.error('[Audit]', error);
-    return NextResponse.json({ error: 'აუდიტი ვერ შესრულდა' }, { status: 500 });
+    return NextResponse.json({ error: 'Audit failed to complete' }, { status: 500 });
   }
 }
 

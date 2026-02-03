@@ -35,16 +35,16 @@ export function validateUrl(
   try {
     const p = new URL(url);
     if (!['http:', 'https:'].includes(p.protocol)) {
-      return { valid: false, error: 'URL უნდა იყოს http ან https' };
+      return { valid: false, error: 'URL must be http or https' };
     }
     if (
       ['localhost', '127.0.0.1', '::1'].includes(p.hostname)
     ) {
-      return { valid: false, error: 'ლოკალური URL-ები დაბლოკილია' };
+      return { valid: false, error: 'Local URLs are blocked' };
     }
     return { valid: true };
   } catch {
-    return { valid: false, error: 'არასწორი URL ფორმატი' };
+    return { valid: false, error: 'Invalid URL format' };
   }
 }
 
