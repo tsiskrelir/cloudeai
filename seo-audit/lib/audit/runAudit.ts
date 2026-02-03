@@ -1007,7 +1007,7 @@ function analyzeAccessibility(doc: Document, htmlLower: string) {
   const autoplayMedia = doc.querySelectorAll('video[autoplay], audio[autoplay]').length;
 
   // Contrast checking - analyze inline styles and style attributes
-  const lowContrastElements: { element: string; text: string; colors: string; ratio: string; section: string }[] = [];
+  const lowContrastElements: { element: string; text: string; foreground: string; background: string; ratio: number; wcagAA: boolean; wcagAAA: boolean; section: string; css?: string }[] = [];
   let colorContrastIssues = 0;
   const sectionIssues: Record<string, number> = {};
 
@@ -1016,16 +1016,16 @@ function analyzeAccessibility(doc: Document, htmlLower: string) {
     // Check if inside specific semantic sections
     if (el.closest('header') || el.closest('[role="banner"]')) return 'Header';
     if (el.closest('footer') || el.closest('[role="contentinfo"]')) return 'Footer';
-    if (el.closest('nav') || el.closest('[role="navigation"]')) return 'ნავიგაცია';
+    if (el.closest('nav') || el.closest('[role="navigation"]')) return 'Navigation';
     if (el.closest('aside') || el.closest('[role="complementary"]')) return 'Sidebar';
-    if (el.closest('main') || el.closest('[role="main"]')) return 'მთავარი კონტენტი';
-    if (el.closest('form')) return 'ფორმა';
-    if (el.closest('article')) return 'სტატია';
-    if (el.closest('.hero') || el.closest('[class*="hero"]')) return 'Hero სექცია';
-    if (el.closest('.banner') || el.closest('[class*="banner"]')) return 'ბანერი';
-    if (el.closest('.card') || el.closest('[class*="card"]')) return 'ბარათი';
-    if (el.closest('.btn') || el.closest('button') || el.closest('[class*="button"]')) return 'ღილაკი';
-    return 'სხვა';
+    if (el.closest('main') || el.closest('[role="main"]')) return 'Main Content';
+    if (el.closest('form')) return 'Form';
+    if (el.closest('article')) return 'Article';
+    if (el.closest('.hero') || el.closest('[class*="hero"]')) return 'Hero Section';
+    if (el.closest('.banner') || el.closest('[class*="banner"]')) return 'Banner';
+    if (el.closest('.card') || el.closest('[class*="card"]')) return 'Card';
+    if (el.closest('.btn') || el.closest('button') || el.closest('[class*="button"]')) return 'Button';
+    return 'Other';
   };
 
   // Check elements with inline styles for contrast issues
@@ -1052,11 +1052,15 @@ function analyzeAccessibility(doc: Document, htmlLower: string) {
           sectionIssues[section] = (sectionIssues[section] || 0) + 1;
 
           if (lowContrastElements.length < 8) {
+            const outerHTML = (el as HTMLElement).outerHTML?.substring(0, 150) || `<${el.tagName.toLowerCase()}>`;
             lowContrastElements.push({
-              element: el.tagName.toLowerCase(),
+              element: outerHTML,
               text: text,
-              colors: `${colorMatch[1].trim()} / ${bgMatch[1].trim()}`,
-              ratio: ratio.toFixed(2) + ':1',
+              foreground: colorMatch[1].trim(),
+              background: bgMatch[1].trim(),
+              ratio: ratio,
+              wcagAA: ratio >= 4.5,
+              wcagAAA: ratio >= 7,
               section
             });
           }
@@ -1088,11 +1092,15 @@ function analyzeAccessibility(doc: Document, htmlLower: string) {
                   if (ratio < 4.5 && lowContrastElements.length < 8) {
                     colorContrastIssues++;
                     sectionIssues[sectionName] = (sectionIssues[sectionName] || 0) + 1;
+                    const outerHTML = (child as HTMLElement).outerHTML?.substring(0, 150) || `<${child.tagName.toLowerCase()}>`;
                     lowContrastElements.push({
-                      element: child.tagName.toLowerCase(),
+                      element: outerHTML,
                       text: child.textContent?.trim().substring(0, 30) || '',
-                      colors: `${colorMatch[1].trim()} on ${bgMatch[1].trim()}`,
-                      ratio: ratio.toFixed(2) + ':1',
+                      foreground: colorMatch[1].trim(),
+                      background: bgMatch[1].trim(),
+                      ratio: ratio,
+                      wcagAA: ratio >= 4.5,
+                      wcagAAA: ratio >= 7,
                       section: sectionName
                     });
                   }
@@ -1108,32 +1116,38 @@ function analyzeAccessibility(doc: Document, htmlLower: string) {
   // Check specific sections
   checkSectionContrast('header', 'Header');
   checkSectionContrast('footer', 'Footer');
-  checkSectionContrast('nav', 'ნავიგაცია');
-  checkSectionContrast('.hero', 'Hero სექცია');
+  checkSectionContrast('nav', 'Navigation');
+  checkSectionContrast('.hero', 'Hero Section');
 
   // Also check CSS for problematic color combinations
   const styleContent = Array.from(doc.querySelectorAll('style')).map(s => s.textContent || '').join(' ');
 
   // Common problematic combinations to flag
   const problematicPatterns = [
-    { pattern: /color\s*:\s*#?(?:ccc|ddd|999|888|aaa|bbb)/i, desc: 'ღია ნაცრისფერი ტექსტი', section: 'CSS სტილები' },
-    { pattern: /color\s*:\s*(?:lightgray|lightgrey|silver)/i, desc: 'ღია ნაცრისფერი ტექსტი', section: 'CSS სტილები' },
-    { pattern: /background\s*:\s*#?(?:ff0|yellow).*color\s*:\s*#?(?:fff|white)/i, desc: 'თეთრი ყვითელზე', section: 'CSS სტილები' },
-    { pattern: /\.btn[^{]*\{[^}]*color\s*:\s*#?(?:ccc|ddd|999|aaa)/i, desc: 'ღილაკის ტექსტი ღიაა', section: 'ღილაკები' },
-    { pattern: /placeholder[^{]*\{[^}]*color\s*:\s*#?(?:ccc|ddd)/i, desc: 'Placeholder ძალიან ღიაა', section: 'ფორმის ველები' },
+    { pattern: /color\s*:\s*#?(?:ccc|ddd|999|888|aaa|bbb)/i, desc: 'Light gray text', section: 'CSS Styles' },
+    { pattern: /color\s*:\s*(?:lightgray|lightgrey|silver)/i, desc: 'Light gray text', section: 'CSS Styles' },
+    { pattern: /background\s*:\s*#?(?:ff0|yellow).*color\s*:\s*#?(?:fff|white)/i, desc: 'White on yellow', section: 'CSS Styles' },
+    { pattern: /\.btn[^{]*\{[^}]*color\s*:\s*#?(?:ccc|ddd|999|aaa)/i, desc: 'Button text too light', section: 'Buttons' },
+    { pattern: /placeholder[^{]*\{[^}]*color\s*:\s*#?(?:ccc|ddd)/i, desc: 'Placeholder too light', section: 'Form Fields' },
   ];
 
   problematicPatterns.forEach(({ pattern, desc, section }) => {
     if (pattern.test(styleContent) || pattern.test(htmlLower)) {
       colorContrastIssues++;
       sectionIssues[section] = (sectionIssues[section] || 0) + 1;
+      // Try to extract the actual CSS that matched
+      const cssMatch = styleContent.match(pattern) || htmlLower.match(pattern);
       if (lowContrastElements.length < 8) {
         lowContrastElements.push({
-          element: 'CSS',
+          element: `<style>/* ${desc} */</style>`,
           text: desc,
-          colors: 'სტილის ანალიზი',
-          ratio: '< 4.5:1',
-          section
+          foreground: '#999999',
+          background: '#ffffff',
+          ratio: 2.85,
+          wcagAA: false,
+          wcagAAA: false,
+          section,
+          css: cssMatch ? cssMatch[0].substring(0, 80) : undefined
         });
       }
     }
@@ -1144,7 +1158,7 @@ function analyzeAccessibility(doc: Document, htmlLower: string) {
   const lightTextMatches = htmlLower.match(lightTextRegex) || [];
   if (lightTextMatches.length > 0) {
     colorContrastIssues += Math.min(lightTextMatches.length, 3);
-    sectionIssues['ღია ფერის ტექსტი'] = Math.min(lightTextMatches.length, 3);
+    sectionIssues['Light colored text'] = Math.min(lightTextMatches.length, 3);
   }
 
   // Contrast score calculation
@@ -1152,17 +1166,47 @@ function analyzeAccessibility(doc: Document, htmlLower: string) {
   const passedWCAG_AAA = colorContrastIssues === 0 && lowContrastElements.length === 0;
   const contrastScore = Math.max(0, 100 - (colorContrastIssues * 15));
 
-  // Sort section issues by count
+  // Sort section issues by count and create contrastIssuesList
   const sortedSectionIssues = Object.entries(sectionIssues)
     .sort((a, b) => b[1] - a[1])
     .map(([section, count]) => ({ section, count }));
+
+  // Group lowContrastElements by section for the contrastIssuesList
+  const contrastIssuesList: { type: string; count: number; details: { element: string; foreground: string; background: string; ratio: number; wcagAA: boolean; wcagAAA: boolean; css?: string }[] }[] = [];
+
+  const groupedBySection = new Map<string, typeof lowContrastElements>();
+  lowContrastElements.forEach(item => {
+    const existing = groupedBySection.get(item.section) || [];
+    existing.push(item);
+    groupedBySection.set(item.section, existing);
+  });
+
+  groupedBySection.forEach((details, type) => {
+    contrastIssuesList.push({
+      type,
+      count: sectionIssues[type] || details.length,
+      details: details.map(d => ({
+        element: d.element,
+        foreground: d.foreground,
+        background: d.background,
+        ratio: d.ratio,
+        wcagAA: d.wcagAA,
+        wcagAAA: d.wcagAAA,
+        css: d.css
+      }))
+    });
+  });
+
+  // Sort by count descending
+  contrastIssuesList.sort((a, b) => b.count - a.count);
 
   const contrastDetails = {
     lowContrastElements,
     passedWCAG_AA,
     passedWCAG_AAA,
     score: contrastScore,
-    sectionIssues: sortedSectionIssues
+    sectionIssues: sortedSectionIssues,
+    contrastIssuesList
   };
 
   return {
@@ -1170,7 +1214,7 @@ function analyzeAccessibility(doc: Document, htmlLower: string) {
     hasSkipLink, hasLangAttribute: !!doc.documentElement?.getAttribute('lang'), clickableImagesWithoutAlt: 0,
     positiveTabindex, hasMainLandmark: aria.landmarks.main > 0, hasNavLandmark: aria.landmarks.nav > 0,
     hasFocusVisible: htmlLower.includes(':focus-visible') || htmlLower.includes('focus-visible'),
-    colorContrastIssues, contrastDetails, aria, tablesWithoutHeaders, autoplayMedia
+    colorContrastIssues, contrastDetails, contrastIssuesList, aria, tablesWithoutHeaders, autoplayMedia
   };
 }
 
