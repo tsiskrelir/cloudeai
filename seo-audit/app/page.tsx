@@ -23,30 +23,87 @@ interface ReadabilityData { fleschScore: number; fleschGrade: string; avgSentenc
 interface AriaData { landmarks: { main: number; nav: number; header: number; footer: number; aside: number; search: number; form: number; region: number }; ariaLabels: number; ariaDescribedby: number; ariaLabelledby: number; ariaHidden: number; ariaLive: number; ariaExpanded: number; roles: string[]; missingLandmarks: string[]; }
 interface DOMData { totalElements: number; maxDepth: number; averageDepth: number; totalNodes: number; textNodes: number; commentNodes: number; inlineStyles: number; inlineScripts: number; emptyElements: number; deprecatedElements: string[]; duplicateIds: string[]; elementCounts: Record<string, number>; }
 
+// PageSpeed types
+interface PageSpeedMetrics { fcp: number; lcp: number; cls: number; tbt: number; si: number; tti: number; }
+interface PageSpeedResult { score: number; metrics: PageSpeedMetrics; opportunities: { id: string; title: string; description: string; savings: string }[]; diagnostics: { id: string; title: string; description: string }[]; error?: string; }
+
+// Crawler types
+interface CrawlPage { url: string; status: number; title: string; depth: number; internalLinks: number; externalLinks: number; wordCount: number; hasH1: boolean; hasMetaDesc: boolean; issues: string[]; responseTime: number; }
+interface CrawlResult { pages: CrawlPage[]; totalPages: number; totalInternalLinks: number; totalExternalLinks: number; brokenLinks: { url: string; status: number; foundOn: string }[]; redirects: { from: string; to: string; status: number }[]; duplicateTitles: { title: string; urls: string[] }[]; duplicateDescriptions: { description: string; urls: string[] }[]; orphanPages: string[]; deepPages: { url: string; depth: number }[]; crawlTime: number; errors: string[]; }
+
+// Robots.txt types
+interface RobotsRule { userAgent: string; rules: { type: 'allow' | 'disallow'; path: string }[]; crawlDelay?: number; }
+interface RobotsValidation { isValid: boolean; errors: string[]; warnings: string[]; sitemaps: string[]; blocksGooglebot: boolean; blocksAll: boolean; rules: RobotsRule[]; }
+
+// Sitemap types
+interface SitemapUrl { loc: string; lastmod?: string; changefreq?: string; priority?: number; }
+interface SitemapData { urls: SitemapUrl[]; sitemapIndexUrls: string[]; totalUrls: number; errors: string[]; }
+
+interface SiteTreeNode {
+  path: string;
+  fullUrl: string;
+  children: SiteTreeNode[];
+  isCurrentPage?: boolean;
+  status?: number;
+  inSitemap?: boolean;
+}
+
 interface AuditResult {
   url: string;
   score: number;
   timestamp: string;
   fetchMethod: 'url' | 'html';
   summary: { criticalIssues: number; highIssues: number; mediumIssues: number; lowIssues: number; totalChecks: number; passedChecks: number; };
-  technical: { title: { value: string; length: number; isOptimal: boolean }; metaDesc: { value: string; length: number; isOptimal: boolean }; canonical: { href: string | null; count: number; isCrossDomain: boolean }; robots: { meta: string | null; hasNoindex: boolean; hasNofollow: boolean }; robotsTxt: { found: boolean; content: string | null; blocksAll: boolean; hasSitemap: boolean }; sitemap: { found: boolean; url: string | null; urlCount?: number; pageInSitemap?: boolean }; llmsTxt: { found: boolean; mentioned: boolean; content?: string }; language: string | null; charset: string | null; viewport: { content: string | null; isMobileOptimized: boolean }; favicon: boolean; appleTouchIcon: boolean; manifestJson: boolean; themeColor: string | null; };
-  international: { hreflangs: HreflangTag[]; hasXDefault: boolean; hasSelfReference: boolean; canonicalInHreflang: boolean; langMatchesHreflang: boolean; issues: string[]; duplicateHreflangs?: string[]; nonCanonicalHreflangs?: string[]; };
-  content: { headings: { h1: string[]; h2: string[]; h3: string[]; h4: string[]; h5: string[]; h6: string[] }; wordCount: number; characterCount: number; sentenceCount: number; paragraphCount: number; readingTime: number; titleH1Duplicate: boolean; duplicateParagraphs: number; aiScore: number; aiPhrases: string[]; readability: ReadabilityData; keywordDensity: KeywordDensity[]; detectedLanguage?: string; };
-  links: { total: number; internal: number; external: number; broken: number; brokenList: { href: string; text: string }[]; genericAnchors: number; genericAnchorsList: { text: string; href: string }[]; nofollow: number; sponsored: number; ugc: number; unsafeExternalCount: number; hasFooterLinks: boolean; hasNavLinks: boolean; internalUrls?: { href: string; text: string }[]; externalUrls?: { href: string; text: string }[]; redirectLinks?: number; redirectList?: { href: string; text: string; status: number; location: string }[]; brokenExternalLinks?: number; brokenExternalList?: { href: string; text: string; status: number; error?: string }[]; };
-  images: { total: number; withoutAlt: number; withEmptyAlt: number; withoutDimensions: number; lazyLoaded: number; lazyAboveFold: number; clickableWithoutAlt: number; decorativeCount: number; largeImages: number; modernFormats: number; srcsetCount: number; brokenCount?: number; brokenList?: { src: string; alt: string }[]; withoutAltList?: { src: string; context: string }[]; withoutDimensionsList?: { src: string; alt: string }[]; emptyAltList?: { src: string; context: string }[]; imageSizeAnalysis?: { checked: number; largeCount: number; oldFormatCount: number; largeList: { src: string; size: string; type: string | null }[]; oldFormatList: { src: string; type: string | null }[]; }; };
+  technical: {
+    title: { value: string; length: number; isOptimal: boolean };
+    metaDesc: { value: string; length: number; isOptimal: boolean };
+    canonical: { href: string | null; count: number; isCrossDomain: boolean };
+    robots: { meta: string | null; hasNoindex: boolean; hasNofollow: boolean };
+    robotsTxt: { found: boolean; content: string | null; blocksAll: boolean; hasSitemap: boolean };
+    sitemap: { found: boolean; url: string | null; urlCount?: number; pageInSitemap?: boolean };
+    siteTree?: {
+      tree: SiteTreeNode;
+      totalUrls: number;
+      sitemapUrls: string[];
+      currentPagePath: string[];
+      issues: { url: string; issue: string; status?: number }[];
+    };
+    llmsTxt: { found: boolean; mentioned: boolean; content?: string };
+    language: string | null;
+    charset: string | null;
+    viewport: { content: string | null; isMobileOptimized: boolean };
+    favicon: boolean;
+    appleTouchIcon: boolean;
+    manifestJson: boolean;
+    themeColor: string | null;
+    wwwRedirect?: { wwwRedirectsToNonWww: boolean; nonWwwRedirectsToWww: boolean; bothAccessible: boolean; preferredVersion: string; issue?: string };
+    httpsRedirect?: { httpRedirectsToHttps: boolean; httpsAccessible: boolean; httpAccessible: boolean; issue?: string };
+    sitemapValidation?: { checked: number; redirects: { url: string; status: number; location: string }[]; notFound: { url: string; status: number }[]; errors: { url: string; error: string }[] };
+  };
+  international: { hreflangs: HreflangTag[]; hasXDefault: boolean; hasSelfReference: boolean; canonicalInHreflang: boolean; langMatchesHreflang: boolean; issues: string[]; };
+  content: { headings: { h1: string[]; h2: string[]; h3: string[]; h4: string[]; h5: string[]; h6: string[] }; wordCount: number; characterCount: number; sentenceCount: number; paragraphCount: number; readingTime: number; titleH1Duplicate: boolean; duplicateParagraphs: number; aiScore: number; aiPhrases: string[]; readability: ReadabilityData; keywordDensity: KeywordDensity[]; };
+  links: { total: number; internal: number; external: number; broken: number; brokenList: { href: string; text: string; reason?: string; htmlTag?: string }[]; genericAnchors: number; genericAnchorsList: { text: string; href: string }[]; nofollow: number; sponsored: number; ugc: number; unsafeExternalCount: number; hasFooterLinks: boolean; hasNavLinks: boolean; };
+  images: { total: number; withoutAlt: number; withEmptyAlt: number; withoutDimensions: number; lazyLoaded: number; lazyAboveFold: number; clickableWithoutAlt: number; decorativeCount: number; largeImages: number; modernFormats: number; srcsetCount: number; };
   schema: { count: number; types: string[]; valid: number; invalid: number; details: SchemaItem[]; missingContext: number; hasWebSiteSearch: boolean; hasBreadcrumb: boolean; hasOrganization: boolean; hasFAQ: boolean; hasHowTo: boolean; };
   social: { og: { title: string | null; description: string | null; image: string | null; url: string | null; type: string | null; siteName: string | null; locale: string | null }; twitter: { card: string | null; site: string | null; creator: string | null; title: string | null; description: string | null; image: string | null }; isComplete: boolean; hasArticleTags: boolean; };
-  accessibility: { buttonsWithoutLabel: number; inputsWithoutLabel: number; linksWithoutText: number; iframesWithoutTitle: number; skippedHeadings: string[]; hasSkipLink: boolean; hasLangAttribute: boolean; clickableImagesWithoutAlt: number; positiveTabindex: number; hasMainLandmark: boolean; hasNavLandmark: boolean; hasFocusVisible: boolean; colorContrastIssues: number; contrastDetails?: { lowContrastElements: { element: string; text: string; colors: string; ratio: string; section?: string }[]; passedWCAG_AA: boolean; passedWCAG_AAA: boolean; score: number; sectionIssues?: { section: string; count: number }[] }; aria: AriaData; tablesWithoutHeaders: number; autoplayMedia: number; };
+  accessibility: { buttonsWithoutLabel: number; inputsWithoutLabel: number; linksWithoutText: number; iframesWithoutTitle: number; skippedHeadings: string[]; hasSkipLink: boolean; hasLangAttribute: boolean; clickableImagesWithoutAlt: number; positiveTabindex: number; hasMainLandmark: boolean; hasNavLandmark: boolean; hasFocusVisible: boolean; colorContrastIssues: number; contrastIssuesList?: { type: string; count: number; details: { element: string; foreground: string; background: string; ratio: number; wcagAA: boolean; wcagAAA: boolean; css?: string }[] }[]; aria: AriaData; tablesWithoutHeaders: number; autoplayMedia: number; };
   dom: DOMData;
   performance: { totalScripts: number; totalStylesheets: number; renderBlockingScripts: number; renderBlockingStyles: number; asyncScripts: number; deferScripts: number; moduleScripts: number; inlineScripts: number; inlineStyles: number; preloads: number; preloadsWithoutAs: number; preconnects: number; prefetches: number; dnsPrefetches: number; fontsWithoutDisplay: number; webFonts: number; criticalCssInlined: boolean; hasServiceWorker: boolean; htmlSize: number; estimatedWeight: string; };
-  security: { isHttps: boolean; mixedContentCount: number; mixedContentUrls: string[]; protocolRelativeCount: number; unsafeExternalLinks: number; hasCSP: boolean; hasXFrameOptions: boolean; hasXContentTypeOptions: boolean; hasReferrerPolicy: boolean; hasCORS: boolean; formWithoutAction: number; passwordFieldWithoutAutocomplete: number; ssl?: { valid: boolean; issuer?: string; validFrom?: string; validTo?: string; daysUntilExpiry?: number; error?: string }; securityHeaders?: { headers: Record<string, string | null>; score: number; issues: string[] }; };
+  security: { isHttps: boolean; mixedContentCount: number; mixedContentUrls: string[]; protocolRelativeCount: number; unsafeExternalLinks: number; hasCSP: boolean; hasXFrameOptions: boolean; hasXContentTypeOptions: boolean; hasReferrerPolicy: boolean; hasCORS: boolean; formWithoutAction: number; passwordFieldWithoutAutocomplete: number; };
   platform: { cms: string[]; frameworks: string[]; analytics: string[]; advertising: string[]; renderMethod: string; isCSR: boolean; isPWA: boolean; hasAMP: boolean; };
   trustSignals: { hasAboutPage: boolean; hasContactPage: boolean; hasPrivacyPage: boolean; hasTermsPage: boolean; hasCookiePolicy: boolean; hasAuthor: boolean; hasPublishDate: boolean; hasModifiedDate: boolean; hasCopyright: boolean; hasAddress: boolean; hasPhone: boolean; hasEmail: boolean; socialLinksCount: number; socialPlatforms: string[]; hasSSLBadge: boolean; hasPaymentBadges: boolean; hasReviews: boolean; hasCertifications: boolean; };
-  mobile: { hasViewport: boolean; viewportContent: string | null; hasWidthDeviceWidth: boolean; hasInitialScale: boolean; hasUserScalable: boolean; smallTapTargets: number; tapTargetsList: { element: string; size: string }[]; smallTextElements: number; usesRelativeFontSizes: boolean; hasMediaQueries: boolean; mediaQueryCount: number; hasFlexbox: boolean; hasGrid: boolean; horizontalScrollRisk: boolean; fixedWidthElements: number; hasThemeColor: boolean; hasAppleMobileWebAppCapable: boolean; hasAppleTouchIcon: boolean; hasManifest: boolean; responsiveImagesCount: number; totalImages: number; score: number; issues: string[]; };
-  externalResources: { cssFiles: { url: string; isThirdParty: boolean }[]; cssCount: number; jsFiles: { url: string; isThirdParty: boolean; async: boolean; defer: boolean; module: boolean }[]; jsCount: number; fontFiles: { url: string; format: string | null }[]; fontCount: number; googleFonts: string[]; thirdPartyDomains: string[]; thirdPartyCount: number; suggestedPreconnects: string[]; };
   issues: AuditIssue[];
   passed: string[];
 }
+
+// Brand Colors
+const COLORS = {
+  primary: '#11225c',
+  primaryLight: '#1a3380',
+  accent: '#99ff00',
+  secondary: '#00ccff',
+  highlight: '#ff00ff',
+};
 
 // Icons
 const Icons = {
@@ -58,6 +115,7 @@ const Icons = {
   Check: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
   ChevronDown: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>,
   ChevronUp: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" /></svg>,
+  ChevronRight: () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>,
   Loader: () => <svg className="w-5 h-5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>,
   Link: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>,
   Image: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>,
@@ -70,12 +128,17 @@ const Icons = {
   Eye: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>,
   Users: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>,
   Brain: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>,
-  Accessibility: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>,
+  Sitemap: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2" /></svg>,
+  Folder: () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" /></svg>,
+  File: () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>,
   DOM: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z" /></svg>,
   Chart: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>,
-  Smartphone: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>,
-  Server: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01" /></svg>,
-  List: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" /></svg>,
+  Speed: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>,
+  Robot: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>,
+  Crawler: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9c0 1.657-4.03 3-9 3s-9-1.343-9-3m18 0c0-1.657-4.03-3-9-3s-9 1.343-9 3m9 9a9 9 0 01-9-9m9 9c-1.657 0-3-4.03-3-9s1.343-9 3-9" /></svg>,
+  Tree: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" /></svg>,
+  External: () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>,
+  Play: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
 };
 
 // Chart Components
@@ -143,21 +206,70 @@ const HorizontalBar = ({ value, max, color, label }: { value: number; max: numbe
   </div>
 );
 
+// Site Tree Component
+const SiteTreeView = ({ node, level = 0 }: { node: SiteTreeNode; level?: number }) => {
+  const [isExpanded, setIsExpanded] = useState(level < 2);
+  const hasChildren = node.children && node.children.length > 0;
+
+  return (
+    <div className="font-mono text-sm">
+      <div
+        className={`flex items-center gap-2 py-1 px-2 rounded cursor-pointer hover:bg-gray-100 ${node.isCurrentPage ? 'bg-yellow-100 font-bold' : ''}`}
+        style={{ paddingLeft: `${level * 16 + 8}px` }}
+        onClick={() => hasChildren && setIsExpanded(!isExpanded)}
+      >
+        {hasChildren ? (
+          <span className="text-gray-400">{isExpanded ? <Icons.ChevronDown /> : <Icons.ChevronRight />}</span>
+        ) : (
+          <span className="w-5" />
+        )}
+        <span style={{ color: hasChildren ? COLORS.primary : COLORS.secondary }}>
+          {hasChildren ? <Icons.Folder /> : <Icons.File />}
+        </span>
+        <span className={node.isCurrentPage ? 'text-yellow-700' : 'text-gray-700'}>
+          {node.path || '/'}
+        </span>
+        {node.isCurrentPage && (
+          <span className="ml-2 px-2 py-0.5 text-xs rounded" style={{ backgroundColor: COLORS.accent, color: COLORS.primary }}>
+            Current Page
+          </span>
+        )}
+        {node.status && node.status !== 200 && (
+          <span className={`ml-2 px-2 py-0.5 text-xs rounded ${node.status === 301 || node.status === 302 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'}`}>
+            {node.status}
+          </span>
+        )}
+      </div>
+      {isExpanded && hasChildren && (
+        <div>
+          {node.children.map((child, i) => (
+            <SiteTreeView key={i} node={child} level={level + 1} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
 export default function SEOChecker() {
   const [url, setUrl] = useState('');
   const [htmlInput, setHtmlInput] = useState('');
-  const [inputMode, setInputMode] = useState<'url' | 'html' | 'batch'>('url');
+  const [inputMode, setInputMode] = useState<'url' | 'html'>('url');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [results, setResults] = useState<AuditResult | null>(null);
-  const [batchUrls, setBatchUrls] = useState('');
-  const [batchResults, setBatchResults] = useState<{url: string; score: number; issues: number; status: 'pending' | 'loading' | 'done' | 'error'; error?: string; result?: AuditResult}[]>([]);
-  const [batchProgress, setBatchProgress] = useState({ current: 0, total: 0 });
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [isDragging, setIsDragging] = useState(false);
 
-  // All sections to open by default
-  const allSections = ['overview', 'issues', 'passed', 'technical', 'content', 'headings-tree', 'all-links', 'international', 'links', 'images', 'schema', 'social', 'platform', 'accessibility', 'dom', 'performance', 'ai', 'trust', 'mobile', 'external-resources'];
+  // New feature states
+  const [pageSpeed, setPageSpeed] = useState<{ mobile: PageSpeedResult | null; desktop: PageSpeedResult | null }>({ mobile: null, desktop: null });
+  const [pageSpeedLoading, setPageSpeedLoading] = useState(false);
+  const [crawlResult, setCrawlResult] = useState<{ crawl: CrawlResult; sitemap: SitemapData; robots: { content: string; validation: RobotsValidation } | null } | null>(null);
+  const [crawlLoading, setCrawlLoading] = useState(false);
+  const [crawlProgress, setCrawlProgress] = useState('');
+  const [activeTab, setActiveTab] = useState<'audit' | 'pagespeed' | 'crawler'>('audit');
+
+  const allSections = ['overview', 'issues', 'passed', 'sitemap', 'technical', 'content', 'security', 'international', 'links', 'images', 'schema', 'social', 'platform', 'accessibility', 'dom', 'performance', 'ai', 'trust', 'pagespeed', 'robots', 'crawl'];
 
   const handleAnalyze = async () => {
     setError('');
@@ -168,59 +280,9 @@ export default function SEOChecker() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Audit failed');
       setResults(data);
-      // Open all sections by default
       setExpanded(allSections.reduce((acc, s) => ({ ...acc, [s]: true }), {}));
     } catch (e) { setError(e instanceof Error ? e.message : 'An error occurred'); }
     finally { setLoading(false); }
-  };
-
-  const handleBatchAnalyze = async () => {
-    const urls = batchUrls.split('\n').map(u => u.trim()).filter(u => u && (u.startsWith('http://') || u.startsWith('https://')));
-    if (urls.length === 0) {
-      setError('Enter at least 1 valid URL (http:// or https://)');
-      return;
-    }
-    if (urls.length > 10) {
-      setError('Maximum 10 URLs can be checked at once');
-      return;
-    }
-
-    setError('');
-    setResults(null);
-    setBatchResults(urls.map(u => ({ url: u, score: 0, issues: 0, status: 'pending' })));
-    setBatchProgress({ current: 0, total: urls.length });
-
-    for (let i = 0; i < urls.length; i++) {
-      setBatchResults(prev => prev.map((r, idx) => idx === i ? { ...r, status: 'loading' } : r));
-      setBatchProgress({ current: i + 1, total: urls.length });
-
-      try {
-        const res = await fetch('/api/audit', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ url: urls[i] })
-        });
-        const data = await res.json();
-
-        if (!res.ok) {
-          setBatchResults(prev => prev.map((r, idx) => idx === i ? { ...r, status: 'error', error: data.error } : r));
-        } else {
-          setBatchResults(prev => prev.map((r, idx) => idx === i ? { ...r, status: 'done', score: data.score, issues: data.issues.length, result: data } : r));
-        }
-      } catch (e) {
-        setBatchResults(prev => prev.map((r, idx) => idx === i ? { ...r, status: 'error', error: e instanceof Error ? e.message : 'Error' } : r));
-      }
-
-      // Small delay between requests to avoid rate limiting
-      if (i < urls.length - 1) {
-        await new Promise(resolve => setTimeout(resolve, 1000));
-      }
-    }
-  };
-
-  const selectBatchResult = (result: AuditResult) => {
-    setResults(result);
-    setExpanded(allSections.reduce((acc, s) => ({ ...acc, [s]: true }), {}));
   };
 
   const handleDrop = useCallback((e: React.DragEvent) => {
@@ -234,104 +296,51 @@ export default function SEOChecker() {
     }
   }, []);
 
-  const exportData = (format: 'json' | 'csv' | 'pdf') => {
+  // PageSpeed Analysis
+  const handlePageSpeed = async () => {
+    if (!url) return;
+    setPageSpeedLoading(true);
+    setPageSpeed({ mobile: null, desktop: null });
+    try {
+      const [mobileRes, desktopRes] = await Promise.all([
+        fetch('/api/pagespeed', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url, strategy: 'mobile' }) }),
+        fetch('/api/pagespeed', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url, strategy: 'desktop' }) })
+      ]);
+      const [mobile, desktop] = await Promise.all([mobileRes.json(), desktopRes.json()]);
+      setPageSpeed({ mobile, desktop });
+    } catch (e) { setError('PageSpeed analysis failed'); }
+    finally { setPageSpeedLoading(false); }
+  };
+
+  // Site Crawler
+  const handleCrawl = async () => {
+    if (!url) return;
+    setCrawlLoading(true);
+    setCrawlResult(null);
+    setCrawlProgress('Starting crawl...');
+    try {
+      const res = await fetch('/api/crawl', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url, maxPages: 30, maxDepth: 3 }) });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Crawl failed');
+      setCrawlResult(data);
+      setCrawlProgress('');
+    } catch (e) { setError(e instanceof Error ? e.message : 'Crawl failed'); setCrawlProgress(''); }
+    finally { setCrawlLoading(false); }
+  };
+
+  const exportData = (format: 'json' | 'csv') => {
     if (!results) return;
     if (format === 'json') {
       const blob = new Blob([JSON.stringify(results, null, 2)], { type: 'application/json' });
       const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
       a.download = `seo-audit-${new Date().toISOString().split('T')[0]}.json`; a.click();
-    } else if (format === 'csv') {
+    } else {
       const rows = [['Category', 'Issue', 'Severity', 'Location', 'Fix']];
       results.issues.forEach(i => rows.push([i.category, i.issue, i.severity, i.location, i.fix]));
       const csv = rows.map(r => r.map(c => `"${c}"`).join(',')).join('\n');
       const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' });
       const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
       a.download = `seo-audit-${new Date().toISOString().split('T')[0]}.csv`; a.click();
-    } else if (format === 'pdf') {
-      const printWindow = window.open('', '_blank');
-      if (!printWindow) return;
-
-      const severityColors: Record<string, string> = { critical: '#dc2626', high: '#ea580c', medium: '#ca8a04', low: '#2563eb' };
-      const scoreColor = results.score >= 90 ? '#10b981' : results.score >= 70 ? '#f59e0b' : results.score >= 50 ? '#f97316' : '#ef4444';
-
-      const issuesHtml = results.issues.map(issue => `
-        <div style="padding: 12px; margin: 8px 0; border-left: 4px solid ${severityColors[issue.severity] || '#6b7280'}; background: #f9fafb; border-radius: 4px;">
-          <div style="display: flex; justify-content: space-between; align-items: center;">
-            <strong>${issue.issue}</strong>
-            <span style="background: ${severityColors[issue.severity]}20; color: ${severityColors[issue.severity]}; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 600;">${issue.severity.toUpperCase()}</span>
-          </div>
-          <div style="font-size: 12px; color: #6b7280; margin-top: 4px;"><code style="background: #e5e7eb; padding: 2px 6px; border-radius: 3px;">${issue.location}</code></div>
-          <div style="font-size: 13px; color: #374151; margin-top: 8px;"><strong>Fix:</strong> ${issue.fix}</div>
-        </div>
-      `).join('');
-
-      const passedHtml = results.passed.map(p => `<div style="padding: 8px 12px; background: #dcfce7; border-radius: 4px; margin: 4px 0; color: #166534;">✓ ${p}</div>`).join('');
-
-      printWindow.document.write(`
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <title>SEO Audit Report - ${results.url}</title>
-          <style>
-            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 800px; margin: 0 auto; padding: 40px 20px; color: #1f2937; }
-            h1 { color: #059669; margin-bottom: 0; }
-            h2 { color: #374151; border-bottom: 2px solid #e5e7eb; padding-bottom: 8px; margin-top: 32px; }
-            .score-box { text-align: center; padding: 30px; background: linear-gradient(135deg, #f0fdf4, #ecfdf5); border-radius: 16px; margin: 24px 0; }
-            .score { font-size: 72px; font-weight: 800; color: ${scoreColor}; }
-            .summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin: 24px 0; }
-            .summary-item { text-align: center; padding: 16px; background: #f9fafb; border-radius: 8px; }
-            .summary-value { font-size: 28px; font-weight: 700; }
-            .summary-label { font-size: 12px; color: #6b7280; margin-top: 4px; }
-            .tech-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
-            .tech-item { padding: 12px; background: #f9fafb; border-radius: 6px; }
-            .tech-label { font-size: 12px; color: #6b7280; }
-            .tech-value { font-weight: 600; margin-top: 2px; word-break: break-all; }
-            @media print { body { padding: 20px; } }
-          </style>
-        </head>
-        <body>
-          <h1>SEO Audit Report</h1>
-          <p style="color: #6b7280; margin-top: 4px;">Generated: ${new Date().toLocaleString()} | URL: <a href="${results.url}">${results.url}</a></p>
-
-          <div class="score-box">
-            <div class="score">${results.score}</div>
-            <div style="color: #6b7280;">Overall SEO Score</div>
-          </div>
-
-          <div class="summary-grid">
-            <div class="summary-item"><div class="summary-value" style="color: #dc2626;">${results.summary.criticalIssues}</div><div class="summary-label">Critical</div></div>
-            <div class="summary-item"><div class="summary-value" style="color: #ea580c;">${results.summary.highIssues}</div><div class="summary-label">High</div></div>
-            <div class="summary-item"><div class="summary-value" style="color: #ca8a04;">${results.summary.mediumIssues}</div><div class="summary-label">Medium</div></div>
-            <div class="summary-item"><div class="summary-value" style="color: #2563eb;">${results.summary.lowIssues}</div><div class="summary-label">Low</div></div>
-          </div>
-
-          <h2>Technical Overview</h2>
-          <div class="tech-grid">
-            <div class="tech-item"><div class="tech-label">Title</div><div class="tech-value">${results.technical.title.value || 'Not found'} (${results.technical.title.length} chars)</div></div>
-            <div class="tech-item"><div class="tech-label">Meta Description</div><div class="tech-value">${results.technical.metaDesc.value?.substring(0, 100) || 'Not found'}${results.technical.metaDesc.value && results.technical.metaDesc.value.length > 100 ? '...' : ''} (${results.technical.metaDesc.length} chars)</div></div>
-            <div class="tech-item"><div class="tech-label">Canonical</div><div class="tech-value">${results.technical.canonical.href || 'Not set'}</div></div>
-            <div class="tech-item"><div class="tech-label">Language</div><div class="tech-value">${results.technical.language || 'Not set'}</div></div>
-            <div class="tech-item"><div class="tech-label">Word Count</div><div class="tech-value">${results.content.wordCount}</div></div>
-            <div class="tech-item"><div class="tech-label">Links</div><div class="tech-value">${results.links.internal} internal, ${results.links.external} external</div></div>
-            <div class="tech-item"><div class="tech-label">Images</div><div class="tech-value">${results.images.total} (${results.images.withoutAlt} without alt)</div></div>
-            <div class="tech-item"><div class="tech-label">Schema Types</div><div class="tech-value">${results.schema.types.join(', ') || 'None'}</div></div>
-          </div>
-
-          <h2>Issues Found (${results.issues.length})</h2>
-          ${issuesHtml || '<p style="color: #6b7280;">No issues found!</p>'}
-
-          <h2>Passed Checks (${results.passed.length})</h2>
-          ${passedHtml || '<p style="color: #6b7280;">No passed checks recorded.</p>'}
-
-          <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #e5e7eb; text-align: center; color: #9ca3af; font-size: 12px;">
-            Generated by SEO Audit Tool
-          </div>
-        </body>
-        </html>
-      `);
-      printWindow.document.close();
-      printWindow.focus();
-      setTimeout(() => { printWindow.print(); }, 250);
     }
   };
 
@@ -339,7 +348,7 @@ export default function SEOChecker() {
   const getSeverityStyle = (sev: string) => ({ critical: 'bg-red-100 text-red-800 border-red-200', high: 'bg-orange-100 text-orange-800 border-orange-200', medium: 'bg-yellow-100 text-yellow-800 border-yellow-200', low: 'bg-blue-100 text-blue-800 border-blue-200' }[sev] || 'bg-gray-100');
   const getSeverityLabel = (sev: string) => ({ critical: 'Critical', high: 'High', medium: 'Medium', low: 'Low' }[sev] || sev);
 
-  const Section = ({ title, icon: Icon, id, children, badge, defaultOpen = true }: { title: string; icon: React.FC; id: string; children: React.ReactNode; badge?: React.ReactNode; defaultOpen?: boolean }) => (
+  const Section = ({ title, icon: Icon, id, children, badge }: { title: string; icon: React.FC; id: string; children: React.ReactNode; badge?: React.ReactNode }) => (
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
       <button onClick={() => setExpanded(s => ({ ...s, [id]: !s[id] }))} className="w-full px-5 py-4 flex items-center justify-between hover:bg-gray-50">
         <div className="flex items-center gap-3"><Icon /><span className="font-semibold text-gray-800">{title}</span>{badge}</div>
@@ -356,115 +365,63 @@ export default function SEOChecker() {
   );
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+    <div className="min-h-screen" style={{ background: `linear-gradient(135deg, ${COLORS.primary} 0%, ${COLORS.primaryLight} 50%, ${COLORS.primary} 100%)` }}>
       {/* Header */}
-      <div className="bg-gradient-to-r from-emerald-600 to-teal-600 text-white">
-        <div className="max-w-6xl mx-auto px-6 py-8">
-          <h1 className="text-3xl font-bold">SEO Audit</h1>
-          <p className="text-emerald-100 mt-1">Website SEO Analysis • {results ? `${results.summary.totalChecks} checks completed` : 'Full SEO Analysis'}</p>
+      <div style={{ background: `linear-gradient(90deg, ${COLORS.primary} 0%, ${COLORS.primaryLight} 50%, #2a4a9a 100%)` }} className="text-white">
+        <div className="max-w-6xl mx-auto px-6 py-6">
+          <h1 className="text-3xl font-bold" style={{ color: COLORS.accent }}>SEO Audit Tool</h1>
+          <p style={{ color: COLORS.secondary }} className="mt-1">Complete On-Page & Technical SEO Analysis</p>
+
+          {/* Feature Tabs */}
+          <div className="flex gap-2 mt-4">
+            <button onClick={() => setActiveTab('audit')} className={`px-4 py-2 rounded-lg font-medium transition-all ${activeTab === 'audit' ? 'text-white' : 'text-white/60 hover:text-white/80'}`} style={activeTab === 'audit' ? { backgroundColor: COLORS.accent, color: COLORS.primary } : {}}>
+              <span className="flex items-center gap-2"><Icons.Search /> SEO Audit</span>
+            </button>
+            <button onClick={() => setActiveTab('pagespeed')} className={`px-4 py-2 rounded-lg font-medium transition-all ${activeTab === 'pagespeed' ? 'text-white' : 'text-white/60 hover:text-white/80'}`} style={activeTab === 'pagespeed' ? { backgroundColor: COLORS.secondary, color: COLORS.primary } : {}}>
+              <span className="flex items-center gap-2"><Icons.Speed /> PageSpeed</span>
+            </button>
+            <button onClick={() => setActiveTab('crawler')} className={`px-4 py-2 rounded-lg font-medium transition-all ${activeTab === 'crawler' ? 'text-white' : 'text-white/60 hover:text-white/80'}`} style={activeTab === 'crawler' ? { backgroundColor: COLORS.highlight, color: 'white' } : {}}>
+              <span className="flex items-center gap-2"><Icons.Crawler /> Site Crawler</span>
+            </button>
+          </div>
         </div>
       </div>
 
       <div className="max-w-6xl mx-auto px-6 py-8">
+        {/* SEO Audit Tab */}
+        {activeTab === 'audit' && (
+          <>
         {/* Input */}
         <div className="bg-white rounded-2xl shadow-xl p-6 mb-8">
           <div className="flex gap-3 mb-5">
-            <button onClick={() => { setInputMode('url'); setResults(null); setError(''); setBatchResults([]); }} className={`px-5 py-2.5 rounded-lg font-medium flex items-center gap-2 ${inputMode === 'url' ? 'bg-emerald-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}><Icons.Globe /> By URL</button>
-            <button onClick={() => { setInputMode('html'); setResults(null); setError(''); setBatchResults([]); }} className={`px-5 py-2.5 rounded-lg font-medium flex items-center gap-2 ${inputMode === 'html' ? 'bg-emerald-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}><Icons.Code /> Paste HTML</button>
-            <button onClick={() => { setInputMode('batch'); setResults(null); setError(''); }} className={`px-5 py-2.5 rounded-lg font-medium flex items-center gap-2 ${inputMode === 'batch' ? 'bg-emerald-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}><Icons.List /> Multiple URLs</button>
+            <button onClick={() => { setInputMode('url'); setResults(null); setError(''); }} className="px-5 py-2.5 rounded-lg font-medium flex items-center gap-2 transition-all" style={inputMode === 'url' ? { backgroundColor: COLORS.primary, color: COLORS.accent } : { backgroundColor: '#f3f4f6', color: '#4b5563' }}><Icons.Globe /> By URL</button>
+            <button onClick={() => { setInputMode('html'); setResults(null); setError(''); }} className="px-5 py-2.5 rounded-lg font-medium flex items-center gap-2 transition-all" style={inputMode === 'html' ? { backgroundColor: COLORS.primary, color: COLORS.accent } : { backgroundColor: '#f3f4f6', color: '#4b5563' }}><Icons.Code /> Paste HTML</button>
           </div>
 
           {inputMode === 'url' ? (
             <div>
               <div className="flex gap-3">
                 <div className="flex-1 relative">
-                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"><Icons.Globe /></div>
-                  <input type="text" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://example.com" className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:border-emerald-500 outline-none" onKeyDown={(e) => e.key === 'Enter' && handleAnalyze()} />
+                  <div className="absolute left-4 top-1/2 -translate-y-1/2" style={{ color: COLORS.secondary }}><Icons.Globe /></div>
+                  <input type="text" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://example.com" className="w-full pl-12 pr-4 py-3 border-2 rounded-xl outline-none focus:ring-2" style={{ borderColor: COLORS.primary }} onKeyDown={(e) => e.key === 'Enter' && handleAnalyze()} />
                 </div>
-                <button onClick={handleAnalyze} disabled={loading || !url} className="px-8 py-3 bg-emerald-600 text-white font-semibold rounded-xl hover:bg-emerald-700 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center gap-2">{loading ? <Icons.Loader /> : <Icons.Search />} Analyze</button>
+                <button onClick={handleAnalyze} disabled={loading || !url} className="px-8 py-3 font-semibold rounded-xl disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center gap-2 transition-all hover:opacity-90" style={{ backgroundColor: COLORS.accent, color: COLORS.primary }}>{loading ? <Icons.Loader /> : <Icons.Search />} Analyze</button>
               </div>
-              <p className="text-sm text-gray-500 mt-3">💡 If site is protected by Cloudflare, use &quot;Paste HTML&quot; mode</p>
+              <p className="text-sm mt-3 text-gray-500">If the site is protected by Cloudflare, use the &quot;Paste HTML&quot; mode</p>
             </div>
-          ) : inputMode === 'html' ? (
+          ) : (
             <div onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }} onDragLeave={() => setIsDragging(false)} onDrop={handleDrop}>
               <div className="flex gap-3 mb-3">
                 <div className="flex-1 relative">
                   <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"><Icons.Globe /></div>
-                  <input type="text" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="URL (optional)" className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:border-emerald-500 outline-none" />
+                  <input type="text" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="URL (optional)" className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl outline-none" style={{ borderColor: url ? COLORS.primary : undefined }} />
                 </div>
               </div>
-              <textarea value={htmlInput} onChange={(e) => setHtmlInput(e.target.value)} placeholder={`Paste HTML code here...\n\nHow to get HTML:\n1. Open page in browser\n2. Press Ctrl+U (Windows) or Cmd+Option+U (Mac)\n3. Select all (Ctrl+A) and copy (Ctrl+C)\n4. Paste here\n\n💡 or drag & drop HTML file here`} className={`w-full h-48 px-4 py-3 border-2 rounded-xl font-mono text-sm resize-none ${isDragging ? 'border-emerald-500 bg-emerald-50 border-dashed' : 'border-gray-200'}`} />
+              <textarea value={htmlInput} onChange={(e) => setHtmlInput(e.target.value)} placeholder={`Paste HTML code here...\n\nHow to get HTML:\n1. Open the page in browser\n2. Press Ctrl+U (Windows) or Cmd+Option+U (Mac)\n3. Select all (Ctrl+A) and copy (Ctrl+C)\n4. Paste here\n\nOr drag and drop an HTML file here`} className={`w-full h-48 px-4 py-3 border-2 rounded-xl font-mono text-sm resize-none ${isDragging ? 'border-dashed' : 'border-gray-200'}`} style={isDragging ? { borderColor: COLORS.secondary, backgroundColor: 'rgba(0, 204, 255, 0.1)' } : {}} />
               <div className="flex justify-between items-center mt-4">
                 <span className="text-sm text-gray-500">{htmlInput ? `${htmlInput.length.toLocaleString()} characters` : ''}</span>
-                <button onClick={handleAnalyze} disabled={loading || !htmlInput} className="px-8 py-3 bg-emerald-600 text-white font-semibold rounded-xl hover:bg-emerald-700 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center gap-2">{loading ? <Icons.Loader /> : <Icons.Search />} Analyze</button>
+                <button onClick={handleAnalyze} disabled={loading || !htmlInput} className="px-8 py-3 font-semibold rounded-xl disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center gap-2 transition-all hover:opacity-90" style={{ backgroundColor: COLORS.accent, color: COLORS.primary }}>{loading ? <Icons.Loader /> : <Icons.Search />} Analyze</button>
               </div>
-            </div>
-          ) : (
-            <div>
-              <textarea
-                value={batchUrls}
-                onChange={(e) => setBatchUrls(e.target.value)}
-                placeholder={`Enter URLs (one per line, max 10):\n\nhttps://example.com/page1\nhttps://example.com/page2\nhttps://example.com/page3`}
-                className="w-full h-40 px-4 py-3 border-2 border-gray-200 rounded-xl font-mono text-sm resize-none focus:border-emerald-500 outline-none"
-              />
-              <div className="flex justify-between items-center mt-4">
-                <span className="text-sm text-gray-500">
-                  {batchUrls.split('\n').filter(u => u.trim()).length} URLs
-                  {batchProgress.total > 0 && ` | Progress: ${batchProgress.current}/${batchProgress.total}`}
-                </span>
-                <button
-                  onClick={handleBatchAnalyze}
-                  disabled={batchProgress.current > 0 && batchProgress.current < batchProgress.total}
-                  className="px-8 py-3 bg-emerald-600 text-white font-semibold rounded-xl hover:bg-emerald-700 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center gap-2"
-                >
-                  {batchProgress.current > 0 && batchProgress.current < batchProgress.total ? <Icons.Loader /> : <Icons.Search />}
-                  Analyze ({batchUrls.split('\n').filter(u => u.trim() && u.startsWith('http')).length})
-                </button>
-              </div>
-
-              {/* Batch Results Table */}
-              {batchResults.length > 0 && (
-                <div className="mt-6 border border-gray-200 rounded-xl overflow-hidden">
-                  <table className="w-full text-sm">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-4 py-3 text-left font-medium text-gray-700">URL</th>
-                        <th className="px-4 py-3 text-center font-medium text-gray-700 w-24">Score</th>
-                        <th className="px-4 py-3 text-center font-medium text-gray-700 w-24">Issues</th>
-                        <th className="px-4 py-3 text-center font-medium text-gray-700 w-24">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100">
-                      {batchResults.map((r, i) => (
-                        <tr key={i} className={`hover:bg-gray-50 ${r.status === 'done' ? 'cursor-pointer' : ''}`} onClick={() => r.result && selectBatchResult(r.result)}>
-                          <td className="px-4 py-3 truncate max-w-xs">{r.url}</td>
-                          <td className="px-4 py-3 text-center">
-                            {r.status === 'done' && (
-                              <span className={`font-bold ${r.score >= 70 ? 'text-green-600' : r.score >= 50 ? 'text-yellow-600' : 'text-red-600'}`}>{r.score}</span>
-                            )}
-                            {r.status === 'loading' && <Icons.Loader />}
-                            {r.status === 'pending' && <span className="text-gray-400">—</span>}
-                            {r.status === 'error' && <span className="text-red-600">✗</span>}
-                          </td>
-                          <td className="px-4 py-3 text-center">
-                            {r.status === 'done' && <span className={`${r.issues > 5 ? 'text-red-600' : r.issues > 0 ? 'text-yellow-600' : 'text-green-600'}`}>{r.issues}</span>}
-                            {r.status !== 'done' && <span className="text-gray-400">—</span>}
-                          </td>
-                          <td className="px-4 py-3 text-center">
-                            {r.status === 'done' && <span className="text-green-600">✓</span>}
-                            {r.status === 'loading' && <span className="text-blue-600">...</span>}
-                            {r.status === 'pending' && <span className="text-gray-400">⏳</span>}
-                            {r.status === 'error' && <span className="text-red-600 text-xs" title={r.error}>Error</span>}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                  <div className="px-4 py-2 bg-gray-50 text-xs text-gray-500">
-                    Click on a URL to view details
-                  </div>
-                </div>
-              )}
             </div>
           )}
 
@@ -510,72 +467,14 @@ export default function SEOChecker() {
                   <h3 className="font-semibold text-gray-800 mb-4">Links Distribution</h3>
                   <div className="flex items-center justify-center gap-4">
                     <PieChart data={[
-                      { label: 'Internal', value: results.links.internal, color: '#10b981' },
-                      { label: 'External', value: results.links.external, color: '#8b5cf6' },
+                      { label: 'Internal', value: results.links.internal, color: COLORS.accent },
+                      { label: 'External', value: results.links.external, color: COLORS.secondary },
                       { label: 'Broken', value: results.links.broken, color: '#ef4444' },
                     ]} size={100} />
                     <div className="space-y-2 text-sm">
-                      <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-emerald-500" /><span>Internal: {results.links.internal}</span></div>
-                      <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-purple-500" /><span>External: {results.links.external}</span></div>
+                      <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full" style={{ backgroundColor: COLORS.accent }} /><span>Internal: {results.links.internal}</span></div>
+                      <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full" style={{ backgroundColor: COLORS.secondary }} /><span>External: {results.links.external}</span></div>
                       <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-red-500" /><span>Broken: {results.links.broken}</span></div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* More Charts Row */}
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
-                {/* Images Breakdown */}
-                <div className="p-6 bg-gray-50 rounded-xl">
-                  <h3 className="font-semibold text-gray-800 mb-4">Images Analysis</h3>
-                  <BarChart data={[
-                    { label: 'Total', value: results.images.total, color: '#6366f1' },
-                    { label: 'No alt', value: results.images.withoutAlt, color: '#ef4444' },
-                    { label: 'No dimensions', value: results.images.withoutDimensions, color: '#f97316' },
-                    { label: 'Lazy Load', value: results.images.lazyLoaded, color: '#10b981' },
-                    { label: 'WebP/AVIF', value: results.images.modernFormats || 0, color: '#06b6d4' },
-                  ]} />
-                </div>
-
-                {/* Content Composition */}
-                <div className="p-6 bg-gray-50 rounded-xl">
-                  <h3 className="font-semibold text-gray-800 mb-4">Content Composition</h3>
-                  <div className="space-y-3">
-                    <HorizontalBar value={results.content.headings.h1.length + results.content.headings.h2.length + results.content.headings.h3.length} max={20} color="#ef4444" label={`Headings: ${results.content.headings.h1.length + results.content.headings.h2.length + results.content.headings.h3.length}`} />
-                    <HorizontalBar value={results.content.paragraphCount || 0} max={50} color="#3b82f6" label={`Paragraphs: ${results.content.paragraphCount || 0}`} />
-                    <HorizontalBar value={results.links.total} max={100} color="#8b5cf6" label={`Links: ${results.links.total}`} />
-                    <HorizontalBar value={results.images.total} max={50} color="#10b981" label={`Images: ${results.images.total}`} />
-                    <HorizontalBar value={results.schema.count} max={10} color="#f59e0b" label={`Schema: ${results.schema.count}`} />
-                  </div>
-                </div>
-
-                {/* SEO Health Indicators */}
-                <div className="p-6 bg-gray-50 rounded-xl">
-                  <h3 className="font-semibold text-gray-800 mb-4">SEO Health</h3>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className={`p-3 rounded-lg text-center ${results.technical.title.isOptimal ? 'bg-green-100' : 'bg-yellow-100'}`}>
-                      <div className={`text-lg font-bold ${results.technical.title.isOptimal ? 'text-green-700' : 'text-yellow-700'}`}>{results.technical.title.isOptimal ? '✓' : '⚠'}</div>
-                      <div className="text-xs text-gray-600">Title</div>
-                    </div>
-                    <div className={`p-3 rounded-lg text-center ${results.technical.metaDesc.isOptimal ? 'bg-green-100' : 'bg-yellow-100'}`}>
-                      <div className={`text-lg font-bold ${results.technical.metaDesc.isOptimal ? 'text-green-700' : 'text-yellow-700'}`}>{results.technical.metaDesc.isOptimal ? '✓' : '⚠'}</div>
-                      <div className="text-xs text-gray-600">Meta Desc</div>
-                    </div>
-                    <div className={`p-3 rounded-lg text-center ${results.content.headings.h1.length === 1 ? 'bg-green-100' : 'bg-red-100'}`}>
-                      <div className={`text-lg font-bold ${results.content.headings.h1.length === 1 ? 'text-green-700' : 'text-red-700'}`}>{results.content.headings.h1.length === 1 ? '✓' : results.content.headings.h1.length}</div>
-                      <div className="text-xs text-gray-600">H1</div>
-                    </div>
-                    <div className={`p-3 rounded-lg text-center ${results.security.isHttps ? 'bg-green-100' : 'bg-red-100'}`}>
-                      <div className={`text-lg font-bold ${results.security.isHttps ? 'text-green-700' : 'text-red-700'}`}>{results.security.isHttps ? '✓' : '✗'}</div>
-                      <div className="text-xs text-gray-600">HTTPS</div>
-                    </div>
-                    <div className={`p-3 rounded-lg text-center ${results.images.withoutAlt === 0 ? 'bg-green-100' : 'bg-red-100'}`}>
-                      <div className={`text-lg font-bold ${results.images.withoutAlt === 0 ? 'text-green-700' : 'text-red-700'}`}>{results.images.withoutAlt === 0 ? '✓' : results.images.withoutAlt}</div>
-                      <div className="text-xs text-gray-600">Alt Tags</div>
-                    </div>
-                    <div className={`p-3 rounded-lg text-center ${results.schema.count > 0 ? 'bg-green-100' : 'bg-yellow-100'}`}>
-                      <div className={`text-lg font-bold ${results.schema.count > 0 ? 'text-green-700' : 'text-yellow-700'}`}>{results.schema.count > 0 ? '✓' : '⚠'}</div>
-                      <div className="text-xs text-gray-600">Schema</div>
                     </div>
                   </div>
                 </div>
@@ -583,11 +482,11 @@ export default function SEOChecker() {
 
               {/* Quick Stats */}
               <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3 mt-6">
-                <div className="p-3 bg-slate-50 rounded-lg text-center"><div className="text-2xl font-bold text-slate-700">{results.summary.totalChecks}</div><div className="text-xs text-slate-600">Checks</div></div>
+                <div className="p-3 rounded-lg text-center" style={{ backgroundColor: `${COLORS.primary}10` }}><div className="text-2xl font-bold" style={{ color: COLORS.primary }}>{results.summary.totalChecks}</div><div className="text-xs text-gray-600">Checks</div></div>
                 <div className="p-3 bg-green-50 rounded-lg text-center"><div className="text-2xl font-bold text-green-700">{results.summary.passedChecks}</div><div className="text-xs text-green-600">Passed</div></div>
                 <div className="p-3 bg-red-50 rounded-lg text-center"><div className="text-2xl font-bold text-red-700">{results.issues.length}</div><div className="text-xs text-red-600">Issues</div></div>
-                <div className="p-3 bg-blue-50 rounded-lg text-center"><div className="text-2xl font-bold text-blue-700">{results.content.wordCount}</div><div className="text-xs text-blue-600">Words</div></div>
-                <div className="p-3 bg-purple-50 rounded-lg text-center"><div className="text-2xl font-bold text-purple-700">{results.images.total}</div><div className="text-xs text-purple-600">Images</div></div>
+                <div className="p-3 rounded-lg text-center" style={{ backgroundColor: `${COLORS.secondary}15` }}><div className="text-2xl font-bold" style={{ color: COLORS.primary }}>{results.content.wordCount}</div><div className="text-xs text-gray-600">Words</div></div>
+                <div className="p-3 rounded-lg text-center" style={{ backgroundColor: `${COLORS.highlight}10` }}><div className="text-2xl font-bold" style={{ color: COLORS.highlight }}>{results.images.total}</div><div className="text-xs text-gray-600">Images</div></div>
                 <div className="p-3 bg-amber-50 rounded-lg text-center"><div className="text-2xl font-bold text-amber-700">{results.schema.count}</div><div className="text-xs text-amber-600">Schema</div></div>
                 <div className="p-3 bg-teal-50 rounded-lg text-center"><div className="text-2xl font-bold text-teal-700">{(results.content.readability?.fleschScore || 0).toFixed(1)}</div><div className="text-xs text-teal-600">Flesch Score</div></div>
               </div>
@@ -596,17 +495,13 @@ export default function SEOChecker() {
               <div className="flex gap-2 mt-6">
                 <button onClick={() => exportData('json')} className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg flex items-center gap-2 text-sm"><Icons.Download /> Export JSON</button>
                 <button onClick={() => exportData('csv')} className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg flex items-center gap-2 text-sm"><Icons.Download /> Export CSV</button>
-                <button onClick={() => exportData('pdf')} className="px-4 py-2 bg-emerald-100 hover:bg-emerald-200 text-emerald-700 rounded-lg flex items-center gap-2 text-sm"><Icons.Download /> Export PDF</button>
               </div>
             </Section>
 
             {/* Issues */}
             <Section title="Issues Found" icon={Icons.Alert} id="issues" badge={<span className="px-2 py-0.5 bg-red-100 text-red-700 rounded-full text-sm">{results.issues.length}</span>}>
               <div className="space-y-3 mt-4">
-                {[...results.issues].sort((a, b) => {
-                  const order: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 };
-                  return (order[a.severity] ?? 4) - (order[b.severity] ?? 4);
-                }).map((issue, i) => (
+                {results.issues.map((issue, i) => (
                   <div key={i} className={`p-4 rounded-lg border ${getSeverityStyle(issue.severity)}`}>
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex-1">
@@ -615,15 +510,25 @@ export default function SEOChecker() {
                         {issue.current && <div className="text-xs mt-1 opacity-70 truncate max-w-md">Current: {issue.current}</div>}
                         {issue.details && <div className="text-xs mt-1 opacity-70">{issue.details}</div>}
 
-                        {/* Show broken links list */}
+                        {/* Show broken links list with full HTML and reason */}
                         {issue.id === 'broken-links' && results.links.brokenList && results.links.brokenList.length > 0 && (
-                          <div className="mt-2 p-2 bg-white/30 rounded text-xs space-y-1">
+                          <div className="mt-2 p-2 bg-white/30 rounded text-xs space-y-2">
                             <div className="font-medium">Broken Links:</div>
-                            {results.links.brokenList.map((link: {href: string; text: string}, j: number) => (
-                              <div key={j} className="flex gap-2 items-center">
-                                <span className="text-red-600">•</span>
-                                <code className="bg-white/50 px-1 rounded truncate max-w-xs">{link.href}</code>
-                                {link.text && <span className="opacity-60 truncate">({link.text})</span>}
+                            {results.links.brokenList.map((link: { href: string; text: string; reason?: string; htmlTag?: string }, j: number) => (
+                              <div key={j} className="space-y-1 p-2 bg-white/40 rounded border-l-2 border-red-500">
+                                <code className="block bg-gray-800 text-green-400 p-2 rounded text-xs overflow-x-auto whitespace-pre">
+                                  {link.htmlTag || `<a href="${link.href}">${link.text || '(no text)'}</a>`}
+                                </code>
+                                {link.reason && (
+                                  <div className="text-red-700 font-medium">Warning: {link.reason}</div>
+                                )}
+                                <div className="text-gray-600 text-xs">
+                                  <strong>Recommendation:</strong> {
+                                    link.href === '""' || link.href === '' ? 'Add a valid URL or use <button> for interactive elements' :
+                                    link.href?.startsWith('javascript:') ? 'Use <button> instead of JavaScript - better for SEO and accessibility' :
+                                    'Fix or remove this link'
+                                  }
+                                </div>
                               </div>
                             ))}
                           </div>
@@ -633,7 +538,7 @@ export default function SEOChecker() {
                         {issue.id === 'generic-anchors' && results.links.genericAnchorsList && results.links.genericAnchorsList.length > 0 && (
                           <div className="mt-2 p-2 bg-white/30 rounded text-xs space-y-1">
                             <div className="font-medium">Generic Anchors:</div>
-                            {results.links.genericAnchorsList.slice(0, 5).map((link: {text: string; href: string}, j: number) => (
+                            {results.links.genericAnchorsList.slice(0, 5).map((link: { text: string; href: string }, j: number) => (
                               <div key={j} className="flex gap-2 items-center">
                                 <span className="text-yellow-600">•</span>
                                 <code className="bg-white/50 px-1 rounded">&quot;{link.text}&quot;</code>
@@ -643,109 +548,14 @@ export default function SEOChecker() {
                           </div>
                         )}
 
-                        {/* Show broken images list */}
-                        {issue.id === 'broken-images' && results.images.brokenList && results.images.brokenList.length > 0 && (
-                          <div className="mt-2 p-2 bg-white/30 rounded text-xs space-y-1">
-                            <div className="font-medium">Broken Images:</div>
-                            {results.images.brokenList.map((img: {src: string; alt: string}, j: number) => (
-                              <div key={j} className="flex gap-2 items-center">
-                                <span className="text-red-600">•</span>
-                                <code className="bg-white/50 px-1 rounded truncate max-w-xs">{img.src}</code>
-                                {img.alt && <span className="opacity-60 truncate">({img.alt})</span>}
-                              </div>
-                            ))}
-                          </div>
-                        )}
-
-                        {/* Show redirect links */}
-                        {issue.id === 'redirect-links' && results.links.redirectList && results.links.redirectList.length > 0 && (
-                          <div className="mt-2 p-2 bg-white/30 rounded text-xs space-y-1">
-                            <div className="font-medium">Redirect Links:</div>
-                            {results.links.redirectList.map((link: {href: string; text: string; status: number; location: string}, j: number) => (
-                              <div key={j} className="flex flex-col gap-0.5 p-1 bg-white/20 rounded">
-                                <div className="flex gap-2 items-center">
-                                  <span className="text-yellow-600">•</span>
-                                  <span className="text-orange-600 font-medium">HTTP {link.status}</span>
-                                </div>
-                                {link.text && <div className="pl-4 text-gray-700">Text: &quot;{link.text.substring(0, 50)}{link.text.length > 50 ? '...' : ''}&quot;</div>}
-                                <div className="pl-4"><code className="bg-white/50 px-1 rounded break-all">{link.href}</code></div>
-                                <div className="pl-4 text-green-700">→ {link.location}</div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-
-                        {/* Show broken external links */}
-                        {issue.id === 'broken-external-links' && results.links.brokenExternalList && results.links.brokenExternalList.length > 0 && (
-                          <div className="mt-2 p-2 bg-white/30 rounded text-xs space-y-1">
-                            <div className="font-medium">Broken External Links:</div>
-                            {results.links.brokenExternalList.map((link: {href: string; text: string; status: number; error?: string}, j: number) => (
-                              <div key={j} className="flex flex-col gap-0.5 p-1 bg-white/20 rounded">
-                                <div className="flex gap-2 items-center">
-                                  <span className="text-red-600">•</span>
-                                  <span className="text-red-600 font-medium">{link.status ? `HTTP ${link.status}` : link.error}</span>
-                                </div>
-                                {link.text && <div className="pl-4 text-gray-700">Text: &quot;{link.text.substring(0, 50)}{link.text.length > 50 ? '...' : ''}&quot;</div>}
-                                <div className="pl-4"><code className="bg-white/50 px-1 rounded break-all">{link.href}</code></div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-
-                        {/* Show large images */}
-                        {issue.id === 'large-images' && results.images.imageSizeAnalysis?.largeList && results.images.imageSizeAnalysis.largeList.length > 0 && (
-                          <div className="mt-2 p-2 bg-white/30 rounded text-xs space-y-1">
-                            <div className="font-medium">Large Images:</div>
-                            {results.images.imageSizeAnalysis.largeList.slice(0, 5).map((img: {src: string; size: string; type: string | null}, j: number) => (
-                              <div key={j} className="flex gap-2 items-center">
-                                <span className="text-yellow-600">•</span>
-                                <code className="bg-white/50 px-1 rounded truncate max-w-xs">{img.src.split('/').pop()}</code>
-                                <span className="font-medium">{img.size}</span>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-
-                        {/* Show images without alt */}
-                        {issue.id === 'img-no-alt' && results.images.withoutAltList && results.images.withoutAltList.length > 0 && (
-                          <div className="mt-2 p-2 bg-white/30 rounded text-xs space-y-1">
-                            <div className="font-medium">Images without alt text:</div>
-                            {results.images.withoutAltList.map((img: {src: string; context: string}, j: number) => (
-                              <div key={j} className="flex flex-col gap-0.5 p-1 bg-white/20 rounded">
-                                <div className="flex gap-2 items-center">
-                                  <span className="text-red-600">•</span>
-                                  <code className="bg-white/50 px-1 rounded break-all text-xs">{img.src}</code>
-                                </div>
-                                {img.context && <div className="pl-4 text-gray-600 text-xs">{img.context}</div>}
-                              </div>
-                            ))}
-                          </div>
-                        )}
-
-                        {/* Show images without dimensions */}
-                        {issue.id === 'img-no-dim' && results.images.withoutDimensionsList && results.images.withoutDimensionsList.length > 0 && (
-                          <div className="mt-2 p-2 bg-white/30 rounded text-xs space-y-1">
-                            <div className="font-medium">Images without dimensions (width/height):</div>
-                            {results.images.withoutDimensionsList.map((img: {src: string; alt: string}, j: number) => (
-                              <div key={j} className="flex flex-col gap-0.5 p-1 bg-white/20 rounded">
-                                <div className="flex gap-2 items-center">
-                                  <span className="text-yellow-600">•</span>
-                                  <code className="bg-white/50 px-1 rounded break-all text-xs">{img.src}</code>
-                                </div>
-                                <div className="pl-4 text-gray-600 text-xs">alt: &quot;{img.alt}&quot;</div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-
                         {/* Show mixed content URLs */}
                         {issue.id === 'mixed-content' && results.security.mixedContentUrls && results.security.mixedContentUrls.length > 0 && (
                           <div className="mt-2 p-2 bg-white/30 rounded text-xs space-y-1">
                             <div className="font-medium">HTTP resources on HTTPS page:</div>
-                            {results.security.mixedContentUrls.map((url: string, j: number) => (
+                            {results.security.mixedContentUrls.map((mixedUrl: string, j: number) => (
                               <div key={j} className="flex gap-2 items-center">
                                 <span className="text-red-600">•</span>
-                                <code className="bg-white/50 px-1 rounded truncate max-w-md">{url}</code>
+                                <code className="bg-white/50 px-1 rounded truncate max-w-md">{mixedUrl}</code>
                               </div>
                             ))}
                           </div>
@@ -808,6 +618,107 @@ export default function SEOChecker() {
               </div>
             </Section>
 
+            {/* Sitemap & Site Tree - Always show */}
+            <Section title="Sitemap & Site Structure" icon={Icons.Sitemap} id="sitemap" badge={results.technical.siteTree ? <span className="px-2 py-0.5 rounded-full text-sm" style={{ backgroundColor: `${COLORS.secondary}20`, color: COLORS.primary }}>{results.technical.siteTree.totalUrls} URLs</span> : null}>
+              <div className="mt-4 space-y-4">
+                {/* Sitemap Status */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className={`p-4 rounded-lg text-center ${results.technical.sitemap?.found ? 'bg-green-50' : 'bg-red-50'}`}>
+                    <div className={`text-2xl font-bold ${results.technical.sitemap?.found ? 'text-green-700' : 'text-red-700'}`}>{results.technical.sitemap?.found ? '✓' : '✗'}</div>
+                    <div className="text-sm text-gray-500">Sitemap Found</div>
+                  </div>
+                  <div className="p-4 bg-gray-50 rounded-lg text-center">
+                    <div className="text-2xl font-bold" style={{ color: COLORS.primary }}>{results.technical.sitemap?.urlCount || 0}</div>
+                    <div className="text-sm text-gray-500">URLs in Sitemap</div>
+                  </div>
+                  <div className={`p-4 rounded-lg text-center ${results.technical.sitemap?.pageInSitemap ? 'bg-green-50' : 'bg-yellow-50'}`}>
+                    <div className={`text-2xl font-bold ${results.technical.sitemap?.pageInSitemap ? 'text-green-700' : 'text-yellow-700'}`}>{results.technical.sitemap?.pageInSitemap ? '✓' : '✗'}</div>
+                    <div className="text-sm text-gray-500">Page in Sitemap</div>
+                  </div>
+                  <div className={`p-4 rounded-lg text-center ${results.technical.robotsTxt?.found ? 'bg-green-50' : 'bg-yellow-50'}`}>
+                    <div className={`text-2xl font-bold ${results.technical.robotsTxt?.found ? 'text-green-700' : 'text-yellow-700'}`}>{results.technical.robotsTxt?.found ? '✓' : '✗'}</div>
+                    <div className="text-sm text-gray-500">Robots.txt</div>
+                  </div>
+                </div>
+
+                {/* Sitemap URL */}
+                {results.technical.sitemap?.url && (
+                  <div className="p-3 rounded-lg" style={{ backgroundColor: `${COLORS.secondary}10` }}>
+                    <span className="text-sm text-gray-600">Sitemap URL: </span>
+                    <code className="text-sm" style={{ color: COLORS.primary }}>{results.technical.sitemap.url}</code>
+                  </div>
+                )}
+
+                {/* Site Tree if available */}
+                {results.technical.siteTree && (
+                  <>
+                    {/* Site tree stats */}
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                      <div className="p-4 rounded-lg text-center" style={{ backgroundColor: `${COLORS.primary}10` }}>
+                        <div className="text-2xl font-bold" style={{ color: COLORS.primary }}>{results.technical.siteTree.totalUrls}</div>
+                        <div className="text-sm text-gray-500">Crawled URLs</div>
+                      </div>
+                      <div className="p-4 rounded-lg text-center" style={{ backgroundColor: `${COLORS.accent}15` }}>
+                        <div className="text-2xl font-bold" style={{ color: COLORS.primary }}>{results.technical.siteTree.sitemapUrls.length}</div>
+                        <div className="text-sm text-gray-500">In Sitemap</div>
+                      </div>
+                      <div className={`p-4 rounded-lg text-center ${results.technical.siteTree.issues.length > 0 ? 'bg-red-50' : 'bg-green-50'}`}>
+                        <div className={`text-2xl font-bold ${results.technical.siteTree.issues.length > 0 ? 'text-red-700' : 'text-green-700'}`}>{results.technical.siteTree.issues.length}</div>
+                        <div className="text-sm text-gray-500">Issues</div>
+                      </div>
+                    </div>
+
+                    {/* Current page path */}
+                    {results.technical.siteTree.currentPagePath.length > 0 && (
+                      <div className="p-4 rounded-lg" style={{ backgroundColor: `${COLORS.accent}15` }}>
+                        <div className="text-sm font-medium mb-2" style={{ color: COLORS.primary }}>Current Page Location:</div>
+                        <div className="flex items-center gap-2 flex-wrap font-mono text-sm">
+                          {results.technical.siteTree.currentPagePath.map((segment, i) => (
+                            <React.Fragment key={i}>
+                              {i > 0 && <Icons.ChevronRight />}
+                              <span className={i === results.technical.siteTree!.currentPagePath.length - 1 ? 'font-bold' : ''} style={{ color: i === results.technical.siteTree!.currentPagePath.length - 1 ? COLORS.primary : '#6b7280' }}>{segment || '/'}</span>
+                            </React.Fragment>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Site tree visualization */}
+                    <div className="p-4 bg-gray-50 rounded-lg max-h-96 overflow-auto border" style={{ borderColor: `${COLORS.primary}20` }}>
+                      <div className="text-sm font-medium mb-3" style={{ color: COLORS.primary }}>Site Structure Tree:</div>
+                      <SiteTreeView node={results.technical.siteTree.tree} />
+                    </div>
+
+                    {/* Sitemap issues */}
+                    {results.technical.siteTree.issues.length > 0 && (
+                      <div className="p-4 bg-red-50 rounded-lg border border-red-200">
+                        <div className="text-sm font-medium text-red-800 mb-2">Sitemap Issues Found:</div>
+                        <div className="space-y-2">
+                          {results.technical.siteTree.issues.map((issue, i) => (
+                            <div key={i} className="flex items-center gap-2 text-sm">
+                              <span className={issue.status === 404 ? 'text-red-600' : 'text-yellow-600'}>•</span>
+                              <code className="bg-white/50 px-2 py-1 rounded truncate max-w-md">{issue.url}</code>
+                              <span className="text-gray-600">— {issue.issue}</span>
+                              {issue.status && <span className={`px-2 py-0.5 rounded text-xs ${issue.status === 404 ? 'bg-red-200 text-red-700' : 'bg-yellow-200 text-yellow-700'}`}>{issue.status}</span>}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+
+                {/* No site tree available message */}
+                {!results.technical.siteTree && results.fetchMethod === 'html' && (
+                  <div className="p-4 rounded-lg" style={{ backgroundColor: `${COLORS.secondary}10` }}>
+                    <div className="text-sm" style={{ color: COLORS.primary }}>
+                      <strong>Note:</strong> Site tree visualization requires URL mode. Use &quot;By URL&quot; input to see the full site structure.
+                    </div>
+                  </div>
+                )}
+              </div>
+            </Section>
+
             {/* Content & Readability */}
             <Section title="Content & Readability" icon={Icons.FileText} id="content">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-4">
@@ -836,7 +747,7 @@ export default function SEOChecker() {
                     <div><div className="text-2xl font-bold text-gray-800">{results.content.wordCount.toLocaleString()}</div><div className="text-sm text-gray-500">Words</div></div>
                     <div><div className="text-2xl font-bold text-gray-800">{results.content.sentenceCount || 0}</div><div className="text-sm text-gray-500">Sentences</div></div>
                     <div><div className="text-2xl font-bold text-gray-800">{results.content.paragraphCount || 0}</div><div className="text-sm text-gray-500">Paragraphs</div></div>
-                    <div><div className="text-2xl font-bold text-gray-800">~{results.content.readingTime}</div><div className="text-sm text-gray-500">min read</div></div>
+                    <div><div className="text-2xl font-bold text-gray-800">~{results.content.readingTime}</div><div className="text-sm text-gray-500">Min to read</div></div>
                   </div>
                 </div>
 
@@ -857,7 +768,7 @@ export default function SEOChecker() {
 
                 {/* Headings */}
                 <div className="p-4 bg-gray-50 rounded-xl lg:col-span-2">
-                  <h4 className="font-medium text-gray-700 mb-4">Headings Structure</h4>
+                  <h4 className="font-medium text-gray-700 mb-4">Heading Structure</h4>
                   <BarChart data={[
                     { label: 'H1', value: results.content.headings.h1.length, color: '#ef4444' },
                     { label: 'H2', value: results.content.headings.h2.length, color: '#f97316' },
@@ -870,191 +781,19 @@ export default function SEOChecker() {
               </div>
             </Section>
 
-            {/* Headings Tree */}
-            <Section title="Headings Tree" icon={Icons.FileText} id="headings-tree">
-              <div className="mt-4 p-4 bg-gray-50 rounded-xl">
-                <div className="space-y-1 font-mono text-sm">
-                  {results.content.headings.h1.map((h, i) => (
-                    <div key={`h1-${i}`} className="flex items-center gap-2">
-                      <span className="text-red-600 font-bold w-8">H1</span>
-                      <span className="text-gray-800">{h}</span>
-                    </div>
-                  ))}
-                  {results.content.headings.h2.map((h, i) => (
-                    <div key={`h2-${i}`} className="flex items-center gap-2 pl-4">
-                      <span className="text-orange-600 font-bold w-8">H2</span>
-                      <span className="text-gray-700">{h}</span>
-                    </div>
-                  ))}
-                  {results.content.headings.h3.map((h, i) => (
-                    <div key={`h3-${i}`} className="flex items-center gap-2 pl-8">
-                      <span className="text-yellow-600 font-bold w-8">H3</span>
-                      <span className="text-gray-600">{h}</span>
-                    </div>
-                  ))}
-                  {results.content.headings.h4.map((h, i) => (
-                    <div key={`h4-${i}`} className="flex items-center gap-2 pl-12">
-                      <span className="text-green-600 font-bold w-8">H4</span>
-                      <span className="text-gray-600">{h}</span>
-                    </div>
-                  ))}
-                  {results.content.headings.h5.map((h, i) => (
-                    <div key={`h5-${i}`} className="flex items-center gap-2 pl-16">
-                      <span className="text-blue-600 font-bold w-8">H5</span>
-                      <span className="text-gray-500">{h}</span>
-                    </div>
-                  ))}
-                  {results.content.headings.h6.map((h, i) => (
-                    <div key={`h6-${i}`} className="flex items-center gap-2 pl-20">
-                      <span className="text-purple-600 font-bold w-8">H6</span>
-                      <span className="text-gray-500">{h}</span>
-                    </div>
-                  ))}
-                  {results.content.headings.h1.length === 0 && results.content.headings.h2.length === 0 && (
-                    <div className="text-gray-400 italic">No headings found</div>
-                  )}
-                </div>
-              </div>
-            </Section>
-
-            {/* All Links - Grouped */}
-            <Section title="All Links (Grouped)" icon={Icons.Link} id="all-links" badge={<span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-sm">{results.links.total} links</span>}>
-              <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Internal Links */}
-                <div className="p-4 bg-green-50 rounded-xl">
-                  <h4 className="font-semibold text-green-800 mb-3 flex items-center gap-2">
-                    <span className="w-3 h-3 rounded-full bg-green-500"></span>
-                    Internal Links ({results.links.internal})
-                  </h4>
-                  <div className="max-h-64 overflow-y-auto space-y-2">
-                    {results.links.internalUrls && results.links.internalUrls.length > 0 ? (
-                      results.links.internalUrls.slice(0, 30).map((link: {href: string; text: string}, i: number) => (
-                        <div key={i} className="p-2 bg-white rounded text-sm">
-                          <div className="text-green-700 font-medium truncate">{link.text || '(no anchor text)'}</div>
-                          <code className="text-xs text-gray-500 break-all">{link.href}</code>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="text-gray-500 text-sm italic">No internal links found</div>
-                    )}
-                    {results.links.internalUrls && results.links.internalUrls.length > 30 && (
-                      <div className="text-green-600 text-sm">... and {results.links.internalUrls.length - 30} more links</div>
-                    )}
-                  </div>
-                </div>
-
-                {/* External Links */}
-                <div className="p-4 bg-purple-50 rounded-xl">
-                  <h4 className="font-semibold text-purple-800 mb-3 flex items-center gap-2">
-                    <span className="w-3 h-3 rounded-full bg-purple-500"></span>
-                    External Links ({results.links.external})
-                  </h4>
-                  <div className="max-h-64 overflow-y-auto space-y-2">
-                    {results.links.externalUrls && results.links.externalUrls.length > 0 ? (
-                      results.links.externalUrls.slice(0, 30).map((link: {href: string; text: string}, i: number) => (
-                        <div key={i} className="p-2 bg-white rounded text-sm">
-                          <div className="text-purple-700 font-medium truncate">{link.text || '(no anchor text)'}</div>
-                          <code className="text-xs text-gray-500 break-all">{link.href}</code>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="text-gray-500 text-sm italic">No external links found</div>
-                    )}
-                    {results.links.externalUrls && results.links.externalUrls.length > 30 && (
-                      <div className="text-purple-600 text-sm">... and {results.links.externalUrls.length - 30} more links</div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Redirect Links */}
-                {results.links.redirectList && results.links.redirectList.length > 0 && (
-                  <div className="p-4 bg-yellow-50 rounded-xl">
-                    <h4 className="font-semibold text-yellow-800 mb-3 flex items-center gap-2">
-                      <span className="w-3 h-3 rounded-full bg-yellow-500"></span>
-                      Redirected ({results.links.redirectLinks || 0})
-                    </h4>
-                    <div className="max-h-64 overflow-y-auto space-y-2">
-                      {results.links.redirectList.map((link: {href: string; text: string; status: number; location: string}, i: number) => (
-                        <div key={i} className="p-2 bg-white rounded text-sm">
-                          <div className="flex items-center gap-2">
-                            <span className="text-yellow-600 font-medium">HTTP {link.status}</span>
-                            <span className="text-gray-700">{link.text || '(no anchor text)'}</span>
-                          </div>
-                          <code className="text-xs text-gray-500 break-all">{link.href}</code>
-                          <div className="text-xs text-green-600 mt-1">→ {link.location}</div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Broken External Links */}
-                {results.links.brokenExternalList && results.links.brokenExternalList.length > 0 && (
-                  <div className="p-4 bg-red-50 rounded-xl">
-                    <h4 className="font-semibold text-red-800 mb-3 flex items-center gap-2">
-                      <span className="w-3 h-3 rounded-full bg-red-500"></span>
-                      Broken External Links ({results.links.brokenExternalLinks || 0})
-                    </h4>
-                    <div className="max-h-64 overflow-y-auto space-y-2">
-                      {results.links.brokenExternalList.map((link: {href: string; text: string; status: number; error?: string}, i: number) => (
-                        <div key={i} className="p-2 bg-white rounded text-sm">
-                          <div className="flex items-center gap-2">
-                            <span className="text-red-600 font-medium">{link.status ? `HTTP ${link.status}` : link.error}</span>
-                            <span className="text-gray-700 truncate">{link.text || '(no anchor text)'}</span>
-                          </div>
-                          <code className="text-xs text-gray-500 break-all">{link.href}</code>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Links Distribution Visualization */}
-              <div className="mt-6 p-4 bg-gray-50 rounded-xl">
-                <h4 className="font-medium text-gray-700 mb-4">Links Distribution</h4>
-                <div className="flex items-center gap-4">
-                  <div className="flex-1">
-                    <div className="h-6 rounded-full overflow-hidden flex">
-                      <div className="bg-green-500 transition-all" style={{width: `${results.links.total > 0 ? (results.links.internal / results.links.total) * 100 : 0}%`}}></div>
-                      <div className="bg-purple-500 transition-all" style={{width: `${results.links.total > 0 ? (results.links.external / results.links.total) * 100 : 0}%`}}></div>
-                      <div className="bg-red-500 transition-all" style={{width: `${results.links.total > 0 ? (results.links.broken / results.links.total) * 100 : 0}%`}}></div>
-                    </div>
-                  </div>
-                </div>
-                <div className="flex gap-6 mt-3 text-sm">
-                  <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-green-500"></div><span>Internal: {results.links.internal} ({results.links.total > 0 ? Math.round((results.links.internal / results.links.total) * 100) : 0}%)</span></div>
-                  <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-purple-500"></div><span>External: {results.links.external} ({results.links.total > 0 ? Math.round((results.links.external / results.links.total) * 100) : 0}%)</span></div>
-                  <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-red-500"></div><span>Broken: {results.links.broken}</span></div>
-                </div>
-              </div>
-            </Section>
-
             {/* Technical */}
             <Section title="Technical Details" icon={Icons.Shield} id="technical">
-              <div className="grid grid-cols-1 gap-4 mt-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                 <div className="p-4 bg-gray-50 rounded-lg">
-                  <div className="text-sm text-gray-500 mb-1">Title - {results.technical.title.length} characters</div>
-                  <div className={`font-medium text-sm p-2 rounded border ${results.technical.title.isOptimal ? 'bg-green-50 border-green-200' : 'bg-yellow-50 border-yellow-200'}`}>
-                    {results.technical.title.value || '(not set)'}
-                  </div>
-                  <HorizontalBar value={results.technical.title.length} max={70} color={results.technical.title.isOptimal ? '#10b981' : '#f59e0b'} label={`${results.technical.title.length}/60 chars ${results.technical.title.length > 60 ? '⚠️ too long' : '✓'}`} />
+                  <div className="text-sm text-gray-500 mb-1">Title</div>
+                  <div className="font-medium text-sm">{results.technical.title.value || '—'}</div>
+                  <HorizontalBar value={results.technical.title.length} max={70} color={results.technical.title.isOptimal ? '#10b981' : '#f59e0b'} label={`${results.technical.title.length}/60 chars`} />
                 </div>
                 <div className="p-4 bg-gray-50 rounded-lg">
-                  <div className="text-sm text-gray-500 mb-1">Meta Description - {results.technical.metaDesc.length} characters</div>
-                  <div className={`font-medium text-sm p-2 rounded border ${results.technical.metaDesc.isOptimal ? 'bg-green-50 border-green-200' : 'bg-yellow-50 border-yellow-200'}`}>
-                    {results.technical.metaDesc.value || '(not set)'}
-                  </div>
-                  <HorizontalBar value={results.technical.metaDesc.length} max={170} color={results.technical.metaDesc.isOptimal ? '#10b981' : '#f59e0b'} label={`${results.technical.metaDesc.length}/160 chars ${results.technical.metaDesc.length > 160 ? '⚠️ too long' : results.technical.metaDesc.length === 0 ? '⚠️ missing' : '✓'}`} />
+                  <div className="text-sm text-gray-500 mb-1">Meta Description</div>
+                  <div className="font-medium text-sm truncate">{results.technical.metaDesc.value?.substring(0, 80) || '—'}</div>
+                  <HorizontalBar value={results.technical.metaDesc.length} max={170} color={results.technical.metaDesc.isOptimal ? '#10b981' : '#f59e0b'} label={`${results.technical.metaDesc.length}/160 chars`} />
                 </div>
-                {results.technical.canonical.href && (
-                  <div className="p-4 bg-gray-50 rounded-lg">
-                    <div className="text-sm text-gray-500 mb-1">Canonical URL</div>
-                    <code className="font-medium text-sm p-2 rounded border bg-blue-50 border-blue-200 block break-all">
-                      {results.technical.canonical.href}
-                    </code>
-                  </div>
-                )}
               </div>
               <div className="mt-4 p-4 bg-gray-50 rounded-lg">
                 <div className="text-sm font-medium text-gray-700 mb-3">Technical Checks</div>
@@ -1067,55 +806,38 @@ export default function SEOChecker() {
                   <CheckBadge ok={!results.technical.robots.hasNoindex} label={results.technical.robots.hasNoindex ? 'NOINDEX!' : 'Indexable'} />
                   <CheckBadge ok={!results.platform.isCSR} label={results.platform.isCSR ? 'CSR' : 'SSR/SSG'} />
                   <CheckBadge ok={results.technical.llmsTxt?.found || false} label="llms.txt" />
-                  <CheckBadge ok={results.technical.sitemap?.pageInSitemap ?? false} label={`Sitemap${results.technical.sitemap?.urlCount ? ` (${results.technical.sitemap.urlCount})` : ''}`} />
                   <CheckBadge ok={results.accessibility.hasSkipLink} label="Skip Link" />
                   <CheckBadge ok={results.technical.appleTouchIcon} label="Apple Icon" />
                   <CheckBadge ok={results.technical.manifestJson || false} label="Manifest" />
                   <CheckBadge ok={!!results.technical.canonical.href} label="Canonical" />
-                  <CheckBadge ok={results.technical.robotsTxt?.found || false} label="robots.txt" />
                 </div>
               </div>
 
-              {/* Robots.txt Content */}
-              {results.technical.robotsTxt?.found && results.technical.robotsTxt.content && (
+              {/* WWW Redirect Check */}
+              {results.technical.wwwRedirect && (
                 <div className="mt-4 p-4 bg-gray-50 rounded-lg">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="text-sm font-medium text-gray-700">robots.txt</div>
-                    <div className="flex gap-2 text-xs">
-                      <span className={`px-2 py-1 rounded ${results.technical.robotsTxt.blocksAll ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
-                        {results.technical.robotsTxt.blocksAll ? 'Disallow: /' : 'Open'}
-                      </span>
-                      <span className={`px-2 py-1 rounded ${results.technical.robotsTxt.hasSitemap ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
-                        {results.technical.robotsTxt.hasSitemap ? 'Sitemap: ✓' : 'Sitemap: ✗'}
-                      </span>
-                    </div>
+                  <div className="text-sm font-medium text-gray-700 mb-3">WWW Redirect</div>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <CheckBadge ok={results.technical.wwwRedirect.wwwRedirectsToNonWww || results.technical.wwwRedirect.nonWwwRedirectsToWww} label="Redirect configured" />
+                    <CheckBadge ok={!results.technical.wwwRedirect.bothAccessible} label={results.technical.wwwRedirect.bothAccessible ? 'Both accessible (bad)' : 'Single version'} />
+                    <div className="text-sm text-gray-600">Preferred: <strong>{results.technical.wwwRedirect.preferredVersion}</strong></div>
                   </div>
-                  <pre className="text-xs bg-slate-800 text-slate-100 p-3 rounded overflow-x-auto max-h-40">{results.technical.robotsTxt.content.substring(0, 1000)}</pre>
+                  {results.technical.wwwRedirect.issue && (
+                    <div className="mt-2 text-sm text-yellow-700 bg-yellow-50 p-2 rounded">{results.technical.wwwRedirect.issue}</div>
+                  )}
                 </div>
               )}
 
-              {/* Sitemap Info */}
-              {results.technical.sitemap?.found && (
+              {/* HTTPS Redirect Check */}
+              {results.technical.httpsRedirect && (
                 <div className="mt-4 p-4 bg-gray-50 rounded-lg">
-                  <div className="text-sm font-medium text-gray-700 mb-2">Sitemap</div>
-                  <div className="flex items-center gap-4 text-sm">
-                    <code className="bg-blue-50 text-blue-700 px-2 py-1 rounded break-all">{results.technical.sitemap.url}</code>
-                    {results.technical.sitemap.urlCount && (
-                      <span className="text-gray-600">{results.technical.sitemap.urlCount} URL</span>
-                    )}
-                    <span className={`px-2 py-1 rounded text-xs ${results.technical.sitemap.pageInSitemap ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
-                      {results.technical.sitemap.pageInSitemap ? 'Page in sitemap ✓' : 'Page not in sitemap'}
-                    </span>
+                  <div className="text-sm font-medium text-gray-700 mb-3">HTTPS Redirect</div>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <CheckBadge ok={results.technical.httpsRedirect.httpRedirectsToHttps} label="HTTP redirects to HTTPS" />
+                    <CheckBadge ok={results.technical.httpsRedirect.httpsAccessible} label="HTTPS accessible" />
                   </div>
-                </div>
-              )}
-
-              {/* llms.txt Content */}
-              {results.technical.llmsTxt?.found && (
-                <div className="mt-4 p-4 bg-gray-50 rounded-lg">
-                  <div className="text-sm font-medium text-gray-700 mb-2">llms.txt</div>
-                  {results.technical.llmsTxt.content && (
-                    <pre className="text-xs bg-slate-800 text-slate-100 p-3 rounded overflow-x-auto max-h-32">{results.technical.llmsTxt.content}</pre>
+                  {results.technical.httpsRedirect.issue && (
+                    <div className="mt-2 text-sm text-red-700 bg-red-50 p-2 rounded">{results.technical.httpsRedirect.issue}</div>
                   )}
                 </div>
               )}
@@ -1139,7 +861,7 @@ export default function SEOChecker() {
                   </div>
                   <div className="p-4 bg-gray-50 rounded-lg text-center">
                     <div className={`text-2xl font-bold ${results.dom.duplicateIds.length > 0 ? 'text-red-600' : 'text-green-600'}`}>{results.dom.duplicateIds.length}</div>
-                    <div className="text-sm text-gray-500">Dupl. IDs</div>
+                    <div className="text-sm text-gray-500">Duplicate IDs</div>
                   </div>
                 </div>
                 {results.dom.deprecatedElements.length > 0 && (
@@ -1150,107 +872,9 @@ export default function SEOChecker() {
               </Section>
             )}
 
-            {/* Mobile Friendliness */}
-            {results.mobile && (
-              <Section title="Mobile Friendliness" icon={Icons.Smartphone} id="mobile">
-                <div className="mt-4">
-                  {/* Mobile Score */}
-                  <div className="flex items-center gap-6 mb-6">
-                    <div className="relative">
-                      <DonutChart value={results.mobile.score} size={100} strokeWidth={10} color={results.mobile.score >= 80 ? '#10b981' : results.mobile.score >= 50 ? '#f59e0b' : '#ef4444'} />
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <span className="text-2xl font-bold">{results.mobile.score}</span>
-                      </div>
-                    </div>
-                    <div>
-                      <div className="font-medium text-gray-800 text-lg">Mobile Score</div>
-                      <div className="text-sm text-gray-500">
-                        {results.mobile.score >= 80 ? 'Good mobile experience' : results.mobile.score >= 50 ? 'Needs improvement' : 'Critical issues'}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Mobile Metrics Grid */}
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div className={`p-4 rounded-lg text-center ${results.mobile.hasViewport && results.mobile.hasWidthDeviceWidth ? 'bg-green-50' : 'bg-red-50'}`}>
-                      <div className={`text-2xl font-bold ${results.mobile.hasViewport && results.mobile.hasWidthDeviceWidth ? 'text-green-700' : 'text-red-700'}`}>
-                        {results.mobile.hasViewport && results.mobile.hasWidthDeviceWidth ? '✓' : '✗'}
-                      </div>
-                      <div className="text-sm text-gray-600">Viewport</div>
-                    </div>
-                    <div className={`p-4 rounded-lg text-center ${results.mobile.smallTapTargets === 0 ? 'bg-green-50' : 'bg-orange-50'}`}>
-                      <div className={`text-2xl font-bold ${results.mobile.smallTapTargets === 0 ? 'text-green-700' : 'text-orange-700'}`}>{results.mobile.smallTapTargets}</div>
-                      <div className="text-sm text-gray-600">Small Tap Targets</div>
-                    </div>
-                    <div className={`p-4 rounded-lg text-center ${results.mobile.hasMediaQueries || results.mobile.hasFlexbox || results.mobile.hasGrid ? 'bg-green-50' : 'bg-red-50'}`}>
-                      <div className={`text-2xl font-bold ${results.mobile.hasMediaQueries || results.mobile.hasFlexbox || results.mobile.hasGrid ? 'text-green-700' : 'text-red-700'}`}>
-                        {results.mobile.hasMediaQueries || results.mobile.hasFlexbox || results.mobile.hasGrid ? '✓' : '✗'}
-                      </div>
-                      <div className="text-sm text-gray-600">Responsive</div>
-                    </div>
-                    <div className={`p-4 rounded-lg text-center ${!results.mobile.horizontalScrollRisk ? 'bg-green-50' : 'bg-red-50'}`}>
-                      <div className={`text-2xl font-bold ${!results.mobile.horizontalScrollRisk ? 'text-green-700' : 'text-red-700'}`}>
-                        {!results.mobile.horizontalScrollRisk ? '✓' : '✗'}
-                      </div>
-                      <div className="text-sm text-gray-600">Width OK</div>
-                    </div>
-                  </div>
-
-                  {/* Detailed Mobile Info */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                    <div className="p-4 bg-gray-50 rounded-lg">
-                      <div className="font-medium text-gray-700 mb-2">Responsive Design</div>
-                      <div className="space-y-1 text-sm">
-                        <CheckBadge ok={results.mobile.hasMediaQueries} label={`Media Queries (${results.mobile.mediaQueryCount})`} />
-                        <CheckBadge ok={results.mobile.hasFlexbox} label="Flexbox" />
-                        <CheckBadge ok={results.mobile.hasGrid} label="CSS Grid" />
-                        <CheckBadge ok={results.mobile.usesRelativeFontSizes} label="Relative fonts (rem/em)" />
-                      </div>
-                    </div>
-                    <div className="p-4 bg-gray-50 rounded-lg">
-                      <div className="font-medium text-gray-700 mb-2">Mobile Meta</div>
-                      <div className="space-y-1 text-sm">
-                        <CheckBadge ok={results.mobile.hasThemeColor} label="Theme Color" />
-                        <CheckBadge ok={results.mobile.hasAppleTouchIcon} label="Apple Touch Icon" />
-                        <CheckBadge ok={results.mobile.hasManifest} label="Web App Manifest" />
-                        <CheckBadge ok={!results.mobile.hasUserScalable} label="Zoom allowed" />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Responsive Images */}
-                  {results.mobile.totalImages > 0 && (
-                    <div className="mt-4 p-3 bg-blue-50 rounded-lg">
-                      <div className="text-sm text-blue-800">
-                        <span className="font-medium">Responsive images:</span> {results.mobile.responsiveImagesCount} / {results.mobile.totalImages}
-                        {results.mobile.responsiveImagesCount < results.mobile.totalImages * 0.5 && (
-                          <span className="text-orange-600 ml-2">— srcset usage recommended</span>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Mobile Issues */}
-                  {results.mobile.issues.length > 0 && (
-                    <div className="mt-4 p-4 bg-red-50 rounded-lg">
-                      <div className="font-medium text-red-800 mb-2">Detected issues:</div>
-                      <ul className="space-y-1">
-                        {results.mobile.issues.map((issue, i) => (
-                          <li key={i} className="text-sm text-red-700 flex gap-2">
-                            <span className="text-red-500">•</span>
-                            {issue}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                </div>
-              </Section>
-            )}
-
             {/* Accessibility */}
             <Section title="Accessibility (A11y)" icon={Icons.Eye} id="accessibility">
-              <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mt-4">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
                 <div className={`p-4 rounded-lg text-center ${results.accessibility.buttonsWithoutLabel === 0 ? 'bg-green-50' : 'bg-red-50'}`}>
                   <div className={`text-2xl font-bold ${results.accessibility.buttonsWithoutLabel === 0 ? 'text-green-700' : 'text-red-700'}`}>{results.accessibility.buttonsWithoutLabel}</div>
                   <div className="text-sm text-gray-600">Buttons w/o label</div>
@@ -1263,52 +887,91 @@ export default function SEOChecker() {
                   <div className={`text-2xl font-bold ${results.accessibility.linksWithoutText === 0 ? 'text-green-700' : 'text-red-700'}`}>{results.accessibility.linksWithoutText}</div>
                   <div className="text-sm text-gray-600">Links w/o text</div>
                 </div>
-                <div className={`p-4 rounded-lg text-center ${results.accessibility.colorContrastIssues === 0 ? 'bg-green-50' : 'bg-orange-50'}`}>
-                  <div className={`text-2xl font-bold ${results.accessibility.colorContrastIssues === 0 ? 'text-green-700' : 'text-orange-700'}`}>{results.accessibility.colorContrastIssues}</div>
-                  <div className="text-sm text-gray-600">Contrast issues</div>
-                </div>
                 <div className="p-4 bg-blue-50 rounded-lg text-center">
                   <div className="text-2xl font-bold text-blue-700">{results.accessibility.aria?.ariaLabels || 0}</div>
                   <div className="text-sm text-gray-600">ARIA Labels</div>
                 </div>
               </div>
-              {/* Contrast Details */}
-              {results.accessibility.contrastDetails && results.accessibility.contrastDetails.lowContrastElements.length > 0 && (
-                <div className="mt-4 p-4 bg-orange-50 rounded-lg">
-                  <div className="font-medium text-orange-800 mb-2">Contrast issues (WCAG AA: 4.5:1):</div>
-                  {/* Section Summary */}
-                  {results.accessibility.contrastDetails.sectionIssues && results.accessibility.contrastDetails.sectionIssues.length > 0 && (
-                    <div className="mb-3 p-3 bg-orange-100 rounded">
-                      <div className="text-sm font-medium text-orange-800 mb-2">Sections with low contrast:</div>
-                      <div className="flex flex-wrap gap-2">
-                        {results.accessibility.contrastDetails.sectionIssues.map((sec, i) => (
-                          <span key={i} className="px-2 py-1 bg-orange-200 text-orange-800 rounded text-sm">
-                            {sec.section}: {sec.count} issues
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  <div className="space-y-2">
-                    {results.accessibility.contrastDetails.lowContrastElements.map((item, i) => (
-                      <div key={i} className="text-sm text-orange-700 flex gap-2 items-center">
-                        <span className="text-orange-500">•</span>
-                        {item.section && <span className="text-xs bg-orange-200 px-1.5 py-0.5 rounded">{item.section}</span>}
-                        <span className="font-mono bg-orange-100 px-1 rounded">&lt;{item.element}&gt;</span>
-                        <span className="truncate max-w-xs">{item.text}</span>
-                        <span className="text-orange-600">({item.ratio})</span>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="mt-2 text-xs text-orange-600">
-                    WCAG AA: {results.accessibility.contrastDetails.passedWCAG_AA ? '✓ Passed' : '✗ Failed'} |
-                    WCAG AAA: {results.accessibility.contrastDetails.passedWCAG_AAA ? '✓ Passed' : '✗ Failed'}
-                  </div>
-                </div>
-              )}
               {results.accessibility.aria?.missingLandmarks && results.accessibility.aria.missingLandmarks.length > 0 && (
                 <div className="mt-4 p-3 bg-yellow-50 rounded-lg">
                   <div className="text-sm font-medium text-yellow-800">Missing Landmarks: {results.accessibility.aria.missingLandmarks.join(', ')}</div>
+                </div>
+              )}
+
+              {/* Contrast Issues (WCAG AA: 4.5:1) */}
+              {results.accessibility.colorContrastIssues > 0 && (
+                <div className="mt-4 p-4 bg-red-50 rounded-lg border border-red-200">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Icons.Alert />
+                    <span className="font-semibold text-red-800">Contrast Issues (WCAG AA: 4.5:1)</span>
+                    <span className="px-2 py-0.5 bg-red-200 text-red-800 rounded-full text-xs">{results.accessibility.colorContrastIssues} issues</span>
+                  </div>
+
+                  {results.accessibility.contrastIssuesList && results.accessibility.contrastIssuesList.length > 0 ? (
+                    <div className="space-y-3">
+                      <div className="text-sm text-red-700 font-medium">Sections with low contrast:</div>
+                      {results.accessibility.contrastIssuesList.map((category, i) => (
+                        <div key={i} className="bg-white/50 rounded-lg p-3">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="font-medium text-gray-800">{category.type}</span>
+                            <span className="text-sm text-red-600">{category.count} issues</span>
+                          </div>
+                          {category.details && category.details.slice(0, 5).map((detail, j) => (
+                            <div key={j} className="mt-2 p-2 bg-gray-50 rounded border-l-2 border-red-400">
+                              <div className="flex items-center gap-3 mb-2">
+                                <div className="flex items-center gap-1">
+                                  <span className="text-xs text-gray-500">FG:</span>
+                                  <div className="w-5 h-5 rounded border border-gray-300" style={{ backgroundColor: detail.foreground }} title={detail.foreground} />
+                                  <code className="text-xs bg-gray-100 px-1 rounded">{detail.foreground}</code>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  <span className="text-xs text-gray-500">BG:</span>
+                                  <div className="w-5 h-5 rounded border border-gray-300" style={{ backgroundColor: detail.background }} title={detail.background} />
+                                  <code className="text-xs bg-gray-100 px-1 rounded">{detail.background}</code>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  <span className="text-xs text-gray-500">Ratio:</span>
+                                  <span className={`font-mono text-sm font-bold ${detail.ratio >= 4.5 ? 'text-green-600' : detail.ratio >= 3 ? 'text-yellow-600' : 'text-red-600'}`}>
+                                    {detail.ratio.toFixed(2)}:1
+                                  </span>
+                                </div>
+                              </div>
+                              {detail.element && (
+                                <code className="block text-xs bg-gray-800 text-green-400 p-2 rounded overflow-x-auto whitespace-pre">
+                                  {detail.element}
+                                </code>
+                              )}
+                              {detail.css && (
+                                <div className="mt-1 text-xs text-gray-600">
+                                  <span className="font-medium">CSS: </span>
+                                  <code className="bg-gray-100 px-1 rounded">{detail.css}</code>
+                                </div>
+                              )}
+                              <div className="mt-2 flex gap-2">
+                                <span className={`px-2 py-0.5 rounded text-xs ${detail.wcagAA ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                                  WCAG AA: {detail.wcagAA ? '✓ Pass' : '✗ Failed'}
+                                </span>
+                                <span className={`px-2 py-0.5 rounded text-xs ${detail.wcagAAA ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                                  WCAG AAA: {detail.wcagAAA ? '✓ Pass' : '✗ Failed'}
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+                          {category.details && category.details.length > 5 && (
+                            <div className="mt-2 text-xs text-gray-500">+ {category.details.length - 5} more issues</div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-sm text-red-700">
+                      {results.accessibility.colorContrastIssues} elements have insufficient color contrast (below 4.5:1 ratio for normal text).
+                    </div>
+                  )}
+
+                  <div className="mt-3 text-xs text-gray-600 bg-white/50 p-2 rounded">
+                    <strong>WCAG Guidelines:</strong> Normal text requires 4.5:1 contrast ratio (AA) or 7:1 (AAA). Large text (18pt+) requires 3:1 (AA) or 4.5:1 (AAA).
+                  </div>
                 </div>
               )}
             </Section>
@@ -1322,7 +985,7 @@ export default function SEOChecker() {
                 </div>
                 <div className={`p-4 rounded-lg text-center ${results.performance.renderBlockingScripts > 3 ? 'bg-red-50' : 'bg-green-50'}`}>
                   <div className={`text-2xl font-bold ${results.performance.renderBlockingScripts > 3 ? 'text-red-700' : 'text-green-700'}`}>{results.performance.renderBlockingScripts}</div>
-                  <div className="text-sm text-gray-500">Blocking scripts</div>
+                  <div className="text-sm text-gray-500">Render Blocking</div>
                 </div>
                 <div className="p-4 bg-gray-50 rounded-lg text-center">
                   <div className="text-2xl font-bold text-gray-800">{results.performance.preloads}</div>
@@ -1331,6 +994,28 @@ export default function SEOChecker() {
                 <div className="p-4 bg-gray-50 rounded-lg text-center">
                   <div className="text-2xl font-bold text-gray-800">{results.performance.estimatedWeight || '—'}</div>
                   <div className="text-sm text-gray-500">HTML Size</div>
+                </div>
+              </div>
+            </Section>
+
+            {/* Security */}
+            <Section title="Security" icon={Icons.Lock} id="security">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
+                <div className={`text-center p-4 rounded-lg ${results.security.isHttps ? 'bg-green-50' : 'bg-red-50'}`}>
+                  <div className={`text-2xl font-bold ${results.security.isHttps ? 'text-green-700' : 'text-red-700'}`}>{results.security.isHttps ? '✓' : '✗'}</div>
+                  <div className="text-sm text-gray-600">HTTPS</div>
+                </div>
+                <div className={`text-center p-4 rounded-lg ${results.security.mixedContentCount === 0 ? 'bg-green-50' : 'bg-red-50'}`}>
+                  <div className={`text-2xl font-bold ${results.security.mixedContentCount === 0 ? 'text-green-700' : 'text-red-700'}`}>{results.security.mixedContentCount}</div>
+                  <div className="text-sm text-gray-600">Mixed Content</div>
+                </div>
+                <div className={`text-center p-4 rounded-lg ${results.links.unsafeExternalCount === 0 ? 'bg-green-50' : 'bg-yellow-50'}`}>
+                  <div className={`text-2xl font-bold ${results.links.unsafeExternalCount === 0 ? 'text-green-700' : 'text-yellow-700'}`}>{results.links.unsafeExternalCount}</div>
+                  <div className="text-sm text-gray-600">Unsafe Links</div>
+                </div>
+                <div className="text-center p-4 bg-gray-50 rounded-lg">
+                  <div className="text-2xl font-bold text-gray-700">{results.security.protocolRelativeCount}</div>
+                  <div className="text-sm text-gray-600">Protocol-relative</div>
                 </div>
               </div>
             </Section>
@@ -1357,47 +1042,32 @@ export default function SEOChecker() {
 
             {/* Links */}
             <Section title="Links" icon={Icons.Link} id="links">
-              <div className="grid grid-cols-2 md:grid-cols-6 gap-4 mt-4">
-                <div className="text-center p-4 bg-blue-50 rounded-lg"><div className="text-2xl font-bold text-blue-700">{results.links.total}</div><div className="text-sm text-blue-600">Total</div></div>
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mt-4">
+                <div className="text-center p-4 rounded-lg" style={{ backgroundColor: `${COLORS.primary}10` }}><div className="text-2xl font-bold" style={{ color: COLORS.primary }}>{results.links.total}</div><div className="text-sm text-gray-600">Total</div></div>
                 <div className="text-center p-4 bg-green-50 rounded-lg"><div className="text-2xl font-bold text-green-700">{results.links.internal}</div><div className="text-sm text-green-600">Internal</div></div>
-                <div className="text-center p-4 bg-purple-50 rounded-lg"><div className="text-2xl font-bold text-purple-700">{results.links.external}</div><div className="text-sm text-purple-600">External</div></div>
+                <div className="text-center p-4 rounded-lg" style={{ backgroundColor: `${COLORS.secondary}15` }}><div className="text-2xl font-bold" style={{ color: COLORS.primary }}>{results.links.external}</div><div className="text-sm text-gray-600">External</div></div>
                 <div className={`text-center p-4 rounded-lg ${results.links.broken > 0 ? 'bg-red-50' : 'bg-gray-50'}`}><div className={`text-2xl font-bold ${results.links.broken > 0 ? 'text-red-700' : 'text-gray-700'}`}>{results.links.broken}</div><div className="text-sm text-gray-600">Empty</div></div>
-                <div className={`text-center p-4 rounded-lg ${(results.links.brokenExternalLinks || 0) > 0 ? 'bg-red-50' : 'bg-gray-50'}`}><div className={`text-2xl font-bold ${(results.links.brokenExternalLinks || 0) > 0 ? 'text-red-700' : 'text-gray-700'}`}>{results.links.brokenExternalLinks || 0}</div><div className="text-sm text-gray-600">404 External</div></div>
                 <div className={`text-center p-4 rounded-lg ${results.links.genericAnchors > 0 ? 'bg-yellow-50' : 'bg-gray-50'}`}><div className={`text-2xl font-bold ${results.links.genericAnchors > 0 ? 'text-yellow-700' : 'text-gray-700'}`}>{results.links.genericAnchors}</div><div className="text-sm text-gray-600">Generic</div></div>
               </div>
             </Section>
 
             {/* Images */}
             <Section title="Images" icon={Icons.Image} id="images">
-              <div className="grid grid-cols-2 md:grid-cols-6 gap-4 mt-4">
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mt-4">
                 <div className="text-center p-4 bg-gray-50 rounded-lg"><div className="text-2xl font-bold text-gray-700">{results.images.total}</div><div className="text-sm text-gray-600">Total</div></div>
-                <div className={`text-center p-4 rounded-lg ${results.images.withoutAlt > 0 ? 'bg-red-50' : 'bg-green-50'}`}><div className={`text-2xl font-bold ${results.images.withoutAlt > 0 ? 'text-red-700' : 'text-green-700'}`}>{results.images.withoutAlt}</div><div className="text-sm text-gray-600">Without alt</div></div>
+                <div className={`text-center p-4 rounded-lg ${results.images.withoutAlt > 0 ? 'bg-red-50' : 'bg-green-50'}`}><div className={`text-2xl font-bold ${results.images.withoutAlt > 0 ? 'text-red-700' : 'text-green-700'}`}>{results.images.withoutAlt}</div><div className="text-sm text-gray-600">No alt</div></div>
                 <div className={`text-center p-4 rounded-lg ${results.images.withoutDimensions > 0 ? 'bg-orange-50' : 'bg-green-50'}`}><div className={`text-2xl font-bold ${results.images.withoutDimensions > 0 ? 'text-orange-700' : 'text-green-700'}`}>{results.images.withoutDimensions}</div><div className="text-sm text-gray-600">No dimensions</div></div>
-                <div className="text-center p-4 bg-green-50 rounded-lg"><div className="text-2xl font-bold text-green-700">{results.images.lazyLoaded}</div><div className="text-sm text-green-600">lazy loading</div></div>
+                <div className="text-center p-4 bg-green-50 rounded-lg"><div className="text-2xl font-bold text-green-700">{results.images.lazyLoaded}</div><div className="text-sm text-green-600">Lazy loaded</div></div>
                 <div className="text-center p-4 bg-teal-50 rounded-lg"><div className="text-2xl font-bold text-teal-700">{results.images.modernFormats || 0}</div><div className="text-sm text-teal-600">WebP/AVIF</div></div>
-                <div className={`text-center p-4 rounded-lg ${(results.images.imageSizeAnalysis?.largeCount || 0) > 0 ? 'bg-yellow-50' : 'bg-green-50'}`}><div className={`text-2xl font-bold ${(results.images.imageSizeAnalysis?.largeCount || 0) > 0 ? 'text-yellow-700' : 'text-green-700'}`}>{results.images.imageSizeAnalysis?.largeCount || 0}</div><div className="text-sm text-gray-600">&gt;200KB</div></div>
               </div>
-              {/* Large images list */}
-              {results.images.imageSizeAnalysis?.largeList && results.images.imageSizeAnalysis.largeList.length > 0 && (
-                <div className="mt-4 p-3 bg-yellow-50 rounded-lg text-sm">
-                  <div className="font-medium text-yellow-800 mb-2">Large images:</div>
-                  {results.images.imageSizeAnalysis.largeList.slice(0, 5).map((img, i) => (
-                    <div key={i} className="flex gap-2 text-yellow-700">
-                      <span className="text-yellow-600">•</span>
-                      <span className="truncate max-w-xs">{img.src.split('/').pop()}</span>
-                      <span className="font-medium">{img.size}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
             </Section>
 
             {/* Schema */}
             {results.schema.count > 0 && (
-              <Section title="Schema.org" icon={Icons.Code} id="schema" badge={<span className="px-2 py-0.5 bg-purple-100 text-purple-700 rounded-full text-sm">{results.schema.count}</span>}>
+              <Section title="Schema.org" icon={Icons.Code} id="schema" badge={<span className="px-2 py-0.5 rounded-full text-sm" style={{ backgroundColor: `${COLORS.highlight}15`, color: COLORS.highlight }}>{results.schema.count}</span>}>
                 <div className="mt-4">
                   <div className="flex flex-wrap gap-2">
-                    {results.schema.types.map((t, i) => <span key={i} className="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-sm">{t}</span>)}
+                    {results.schema.types.map((t, i) => <span key={i} className="px-3 py-1 rounded-full text-sm" style={{ backgroundColor: `${COLORS.highlight}15`, color: COLORS.highlight }}>{t}</span>)}
                   </div>
                   <div className="text-sm text-gray-500 mt-3">{results.schema.valid} valid{results.schema.invalid > 0 && <span className="text-red-600">, {results.schema.invalid} invalid</span>}</div>
                 </div>
@@ -1436,111 +1106,6 @@ export default function SEOChecker() {
               </div>
             </Section>
 
-            {/* External Resources */}
-            {results.externalResources && (
-              <Section title="External Resources" icon={Icons.Server} id="external-resources">
-                <div className="mt-4">
-                  {/* Summary */}
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-                    <div className="p-4 bg-blue-50 rounded-lg text-center">
-                      <div className="text-2xl font-bold text-blue-700">{results.externalResources.cssCount}</div>
-                      <div className="text-sm text-gray-600">CSS Files</div>
-                    </div>
-                    <div className="p-4 bg-yellow-50 rounded-lg text-center">
-                      <div className="text-2xl font-bold text-yellow-700">{results.externalResources.jsCount}</div>
-                      <div className="text-sm text-gray-600">JS Files</div>
-                    </div>
-                    <div className="p-4 bg-purple-50 rounded-lg text-center">
-                      <div className="text-2xl font-bold text-purple-700">{results.externalResources.fontCount}</div>
-                      <div className="text-sm text-gray-600">Fonts</div>
-                    </div>
-                    <div className="p-4 bg-orange-50 rounded-lg text-center">
-                      <div className="text-2xl font-bold text-orange-700">{results.externalResources.thirdPartyCount}</div>
-                      <div className="text-sm text-gray-600">Third-party Domains</div>
-                    </div>
-                  </div>
-
-                  {/* CSS Files */}
-                  {results.externalResources.cssFiles.length > 0 && (
-                    <div className="mb-4">
-                      <div className="font-medium text-gray-700 mb-2">CSS Files:</div>
-                      <div className="bg-gray-50 rounded-lg p-3 max-h-40 overflow-y-auto">
-                        {results.externalResources.cssFiles.slice(0, 10).map((file, i) => (
-                          <div key={i} className="text-sm text-gray-600 flex items-center gap-2 py-1">
-                            <span className={`w-2 h-2 rounded-full ${file.isThirdParty ? 'bg-orange-400' : 'bg-green-400'}`}></span>
-                            <span className="truncate font-mono text-xs">{file.url}</span>
-                            {file.isThirdParty && <span className="text-xs text-orange-600">(third-party)</span>}
-                          </div>
-                        ))}
-                        {results.externalResources.cssFiles.length > 10 && (
-                          <div className="text-xs text-gray-500 mt-1">+{results.externalResources.cssFiles.length - 10} more...</div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* JS Files */}
-                  {results.externalResources.jsFiles.length > 0 && (
-                    <div className="mb-4">
-                      <div className="font-medium text-gray-700 mb-2">JavaScript Files:</div>
-                      <div className="bg-gray-50 rounded-lg p-3 max-h-40 overflow-y-auto">
-                        {results.externalResources.jsFiles.slice(0, 10).map((file, i) => (
-                          <div key={i} className="text-sm text-gray-600 flex items-center gap-2 py-1">
-                            <span className={`w-2 h-2 rounded-full ${file.isThirdParty ? 'bg-orange-400' : 'bg-green-400'}`}></span>
-                            <span className="truncate font-mono text-xs flex-1">{file.url}</span>
-                            <span className="flex gap-1">
-                              {file.async && <span className="text-xs bg-green-100 text-green-700 px-1 rounded">async</span>}
-                              {file.defer && <span className="text-xs bg-blue-100 text-blue-700 px-1 rounded">defer</span>}
-                              {file.module && <span className="text-xs bg-purple-100 text-purple-700 px-1 rounded">module</span>}
-                            </span>
-                          </div>
-                        ))}
-                        {results.externalResources.jsFiles.length > 10 && (
-                          <div className="text-xs text-gray-500 mt-1">+{results.externalResources.jsFiles.length - 10} more...</div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Google Fonts */}
-                  {results.externalResources.googleFonts.length > 0 && (
-                    <div className="mb-4">
-                      <div className="font-medium text-gray-700 mb-2">Google Fonts:</div>
-                      <div className="flex flex-wrap gap-2">
-                        {results.externalResources.googleFonts.map((font, i) => (
-                          <span key={i} className="px-2 py-1 bg-purple-100 text-purple-700 rounded text-sm">{font}</span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Third-party Domains */}
-                  {results.externalResources.thirdPartyDomains.length > 0 && (
-                    <div className="mb-4">
-                      <div className="font-medium text-gray-700 mb-2">Third-party Domains:</div>
-                      <div className="flex flex-wrap gap-2">
-                        {results.externalResources.thirdPartyDomains.map((domain, i) => (
-                          <span key={i} className="px-2 py-1 bg-orange-100 text-orange-700 rounded text-sm font-mono">{domain}</span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Suggested Preconnects */}
-                  {results.externalResources.suggestedPreconnects.length > 0 && (
-                    <div className="p-3 bg-yellow-50 rounded-lg">
-                      <div className="text-sm font-medium text-yellow-800 mb-1">Suggested preconnect:</div>
-                      <div className="text-xs text-yellow-700 space-y-1">
-                        {results.externalResources.suggestedPreconnects.map((domain, i) => (
-                          <div key={i} className="font-mono">&lt;link rel=&quot;preconnect&quot; href=&quot;https://{domain}&quot;&gt;</div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </Section>
-            )}
-
             {/* AI Content */}
             {results.content.aiScore > 20 && (
               <Section title="AI Content Analysis" icon={Icons.Brain} id="ai">
@@ -1571,7 +1136,7 @@ export default function SEOChecker() {
               <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mt-4">
                 <div className={`p-3 rounded-lg text-center ${results.trustSignals.hasAboutPage ? 'bg-green-50' : 'bg-gray-50'}`}>
                   <div className={`text-2xl mb-1 ${results.trustSignals.hasAboutPage ? 'text-green-600' : 'text-gray-400'}`}>{results.trustSignals.hasAboutPage ? '✓' : '—'}</div>
-                  <div className="text-sm text-gray-600">About Us</div>
+                  <div className="text-sm text-gray-600">About Page</div>
                 </div>
                 <div className={`p-3 rounded-lg text-center ${results.trustSignals.hasContactPage ? 'bg-green-50' : 'bg-gray-50'}`}>
                   <div className={`text-2xl mb-1 ${results.trustSignals.hasContactPage ? 'text-green-600' : 'text-gray-400'}`}>{results.trustSignals.hasContactPage ? '✓' : '—'}</div>
@@ -1592,18 +1157,384 @@ export default function SEOChecker() {
               </div>
               {results.trustSignals.socialPlatforms && results.trustSignals.socialPlatforms.length > 0 && (
                 <div className="mt-4 flex items-center gap-2 flex-wrap">
-                  <span className="text-gray-500 text-sm">Social Networks:</span>
-                  {results.trustSignals.socialPlatforms.map((s, i) => <span key={i} className="px-2 py-1 bg-purple-100 text-purple-700 rounded text-sm">{s}</span>)}
+                  <span className="text-gray-500 text-sm">Social platforms:</span>
+                  {results.trustSignals.socialPlatforms.map((s, i) => <span key={i} className="px-2 py-1 rounded text-sm" style={{ backgroundColor: `${COLORS.highlight}15`, color: COLORS.highlight }}>{s}</span>)}
                 </div>
               )}
             </Section>
           </div>
         )}
+          </>
+        )}
+
+        {/* PageSpeed Tab */}
+        {activeTab === 'pagespeed' && (
+          <div className="space-y-6">
+            {/* PageSpeed Input */}
+            <div className="bg-white rounded-2xl shadow-xl p-6">
+              <h2 className="text-xl font-bold mb-4" style={{ color: COLORS.primary }}>Google PageSpeed Insights</h2>
+              <p className="text-gray-500 mb-4">Analyze your page performance using Google&apos;s PageSpeed Insights API</p>
+              <div className="flex gap-3">
+                <div className="flex-1 relative">
+                  <div className="absolute left-4 top-1/2 -translate-y-1/2" style={{ color: COLORS.secondary }}><Icons.Globe /></div>
+                  <input type="text" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://example.com" className="w-full pl-12 pr-4 py-3 border-2 rounded-xl outline-none focus:ring-2" style={{ borderColor: COLORS.primary }} onKeyDown={(e) => e.key === 'Enter' && handlePageSpeed()} />
+                </div>
+                <button onClick={handlePageSpeed} disabled={pageSpeedLoading || !url} className="px-8 py-3 font-semibold rounded-xl disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center gap-2 transition-all hover:opacity-90" style={{ backgroundColor: COLORS.secondary, color: COLORS.primary }}>
+                  {pageSpeedLoading ? <Icons.Loader /> : <Icons.Speed />} Analyze Speed
+                </button>
+              </div>
+            </div>
+
+            {/* PageSpeed Results */}
+            {(pageSpeed.mobile || pageSpeed.desktop) && (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Mobile Results */}
+                {pageSpeed.mobile && (
+                  <div className="bg-white rounded-2xl shadow-xl p-6">
+                    <div className="flex items-center gap-3 mb-4">
+                      <span className="text-2xl">📱</span>
+                      <h3 className="text-xl font-bold" style={{ color: COLORS.primary }}>Mobile</h3>
+                    </div>
+                    {pageSpeed.mobile.error ? (
+                      <div className="p-4 bg-red-50 text-red-700 rounded-lg">{pageSpeed.mobile.error}</div>
+                    ) : (
+                      <>
+                        <div className="flex items-center justify-center mb-6">
+                          <div className="relative">
+                            <DonutChart value={pageSpeed.mobile.score} size={120} strokeWidth={12} color={getScoreColor(pageSpeed.mobile.score)} />
+                            <div className="absolute inset-0 flex items-center justify-center">
+                              <span className="text-3xl font-bold" style={{ color: getScoreColor(pageSpeed.mobile.score) }}>{pageSpeed.mobile.score}</span>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-3 gap-3 mb-4">
+                          <div className="text-center p-3 bg-gray-50 rounded-lg">
+                            <div className="text-lg font-bold" style={{ color: pageSpeed.mobile.metrics.lcp > 2500 ? '#ef4444' : pageSpeed.mobile.metrics.lcp > 1800 ? '#f59e0b' : '#10b981' }}>{(pageSpeed.mobile.metrics.lcp / 1000).toFixed(1)}s</div>
+                            <div className="text-xs text-gray-500">LCP</div>
+                          </div>
+                          <div className="text-center p-3 bg-gray-50 rounded-lg">
+                            <div className="text-lg font-bold" style={{ color: pageSpeed.mobile.metrics.cls > 0.25 ? '#ef4444' : pageSpeed.mobile.metrics.cls > 0.1 ? '#f59e0b' : '#10b981' }}>{pageSpeed.mobile.metrics.cls}</div>
+                            <div className="text-xs text-gray-500">CLS</div>
+                          </div>
+                          <div className="text-center p-3 bg-gray-50 rounded-lg">
+                            <div className="text-lg font-bold" style={{ color: pageSpeed.mobile.metrics.fcp > 3000 ? '#ef4444' : pageSpeed.mobile.metrics.fcp > 1800 ? '#f59e0b' : '#10b981' }}>{(pageSpeed.mobile.metrics.fcp / 1000).toFixed(1)}s</div>
+                            <div className="text-xs text-gray-500">FCP</div>
+                          </div>
+                        </div>
+                        {pageSpeed.mobile.opportunities.length > 0 && (
+                          <div className="mt-4">
+                            <h4 className="font-medium text-gray-700 mb-2">Opportunities</h4>
+                            <div className="space-y-2">
+                              {pageSpeed.mobile.opportunities.map((opp, i) => (
+                                <div key={i} className="p-2 bg-yellow-50 rounded text-sm">
+                                  <div className="font-medium text-yellow-800">{opp.title}</div>
+                                  {opp.savings && <div className="text-yellow-600 text-xs">{opp.savings}</div>}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                )}
+
+                {/* Desktop Results */}
+                {pageSpeed.desktop && (
+                  <div className="bg-white rounded-2xl shadow-xl p-6">
+                    <div className="flex items-center gap-3 mb-4">
+                      <span className="text-2xl">🖥️</span>
+                      <h3 className="text-xl font-bold" style={{ color: COLORS.primary }}>Desktop</h3>
+                    </div>
+                    {pageSpeed.desktop.error ? (
+                      <div className="p-4 bg-red-50 text-red-700 rounded-lg">{pageSpeed.desktop.error}</div>
+                    ) : (
+                      <>
+                        <div className="flex items-center justify-center mb-6">
+                          <div className="relative">
+                            <DonutChart value={pageSpeed.desktop.score} size={120} strokeWidth={12} color={getScoreColor(pageSpeed.desktop.score)} />
+                            <div className="absolute inset-0 flex items-center justify-center">
+                              <span className="text-3xl font-bold" style={{ color: getScoreColor(pageSpeed.desktop.score) }}>{pageSpeed.desktop.score}</span>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-3 gap-3 mb-4">
+                          <div className="text-center p-3 bg-gray-50 rounded-lg">
+                            <div className="text-lg font-bold" style={{ color: pageSpeed.desktop.metrics.lcp > 2500 ? '#ef4444' : pageSpeed.desktop.metrics.lcp > 1800 ? '#f59e0b' : '#10b981' }}>{(pageSpeed.desktop.metrics.lcp / 1000).toFixed(1)}s</div>
+                            <div className="text-xs text-gray-500">LCP</div>
+                          </div>
+                          <div className="text-center p-3 bg-gray-50 rounded-lg">
+                            <div className="text-lg font-bold" style={{ color: pageSpeed.desktop.metrics.cls > 0.25 ? '#ef4444' : pageSpeed.desktop.metrics.cls > 0.1 ? '#f59e0b' : '#10b981' }}>{pageSpeed.desktop.metrics.cls}</div>
+                            <div className="text-xs text-gray-500">CLS</div>
+                          </div>
+                          <div className="text-center p-3 bg-gray-50 rounded-lg">
+                            <div className="text-lg font-bold" style={{ color: pageSpeed.desktop.metrics.fcp > 3000 ? '#ef4444' : pageSpeed.desktop.metrics.fcp > 1800 ? '#f59e0b' : '#10b981' }}>{(pageSpeed.desktop.metrics.fcp / 1000).toFixed(1)}s</div>
+                            <div className="text-xs text-gray-500">FCP</div>
+                          </div>
+                        </div>
+                        {pageSpeed.desktop.opportunities.length > 0 && (
+                          <div className="mt-4">
+                            <h4 className="font-medium text-gray-700 mb-2">Opportunities</h4>
+                            <div className="space-y-2">
+                              {pageSpeed.desktop.opportunities.map((opp, i) => (
+                                <div key={i} className="p-2 bg-yellow-50 rounded text-sm">
+                                  <div className="font-medium text-yellow-800">{opp.title}</div>
+                                  {opp.savings && <div className="text-yellow-600 text-xs">{opp.savings}</div>}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Crawler Tab */}
+        {activeTab === 'crawler' && (
+          <div className="space-y-6">
+            {/* Crawler Input */}
+            <div className="bg-white rounded-2xl shadow-xl p-6">
+              <h2 className="text-xl font-bold mb-4" style={{ color: COLORS.primary }}>Site Crawler & Robots.txt Validator</h2>
+              <p className="text-gray-500 mb-4">Crawl your site to find issues, validate robots.txt, and analyze sitemap</p>
+              <div className="flex gap-3">
+                <div className="flex-1 relative">
+                  <div className="absolute left-4 top-1/2 -translate-y-1/2" style={{ color: COLORS.highlight }}><Icons.Globe /></div>
+                  <input type="text" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://example.com" className="w-full pl-12 pr-4 py-3 border-2 rounded-xl outline-none focus:ring-2" style={{ borderColor: COLORS.primary }} onKeyDown={(e) => e.key === 'Enter' && handleCrawl()} />
+                </div>
+                <button onClick={handleCrawl} disabled={crawlLoading || !url} className="px-8 py-3 font-semibold rounded-xl disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center gap-2 transition-all hover:opacity-90" style={{ backgroundColor: COLORS.highlight, color: 'white' }}>
+                  {crawlLoading ? <Icons.Loader /> : <Icons.Play />} Start Crawl
+                </button>
+              </div>
+              {crawlProgress && <div className="mt-3 text-sm" style={{ color: COLORS.highlight }}>{crawlProgress}</div>}
+            </div>
+
+            {/* Crawler Results */}
+            {crawlResult && (
+              <div className="space-y-6">
+                {/* Crawl Overview */}
+                <div className="bg-white rounded-2xl shadow-xl p-6">
+                  <h3 className="text-xl font-bold mb-4" style={{ color: COLORS.primary }}>Crawl Results</h3>
+                  <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                    <div className="p-4 rounded-lg text-center" style={{ backgroundColor: `${COLORS.primary}10` }}>
+                      <div className="text-2xl font-bold" style={{ color: COLORS.primary }}>{crawlResult.crawl.totalPages}</div>
+                      <div className="text-sm text-gray-500">Pages Crawled</div>
+                    </div>
+                    <div className="p-4 bg-green-50 rounded-lg text-center">
+                      <div className="text-2xl font-bold text-green-700">{crawlResult.crawl.totalInternalLinks}</div>
+                      <div className="text-sm text-gray-500">Internal Links</div>
+                    </div>
+                    <div className="p-4 rounded-lg text-center" style={{ backgroundColor: `${COLORS.secondary}15` }}>
+                      <div className="text-2xl font-bold" style={{ color: COLORS.primary }}>{crawlResult.crawl.totalExternalLinks}</div>
+                      <div className="text-sm text-gray-500">External Links</div>
+                    </div>
+                    <div className={`p-4 rounded-lg text-center ${crawlResult.crawl.brokenLinks.length > 0 ? 'bg-red-50' : 'bg-green-50'}`}>
+                      <div className={`text-2xl font-bold ${crawlResult.crawl.brokenLinks.length > 0 ? 'text-red-700' : 'text-green-700'}`}>{crawlResult.crawl.brokenLinks.length}</div>
+                      <div className="text-sm text-gray-500">Broken Links</div>
+                    </div>
+                    <div className={`p-4 rounded-lg text-center ${crawlResult.crawl.redirects.length > 0 ? 'bg-yellow-50' : 'bg-green-50'}`}>
+                      <div className={`text-2xl font-bold ${crawlResult.crawl.redirects.length > 0 ? 'text-yellow-700' : 'text-green-700'}`}>{crawlResult.crawl.redirects.length}</div>
+                      <div className="text-sm text-gray-500">Redirects</div>
+                    </div>
+                    <div className="p-4 bg-gray-50 rounded-lg text-center">
+                      <div className="text-2xl font-bold text-gray-700">{(crawlResult.crawl.crawlTime / 1000).toFixed(1)}s</div>
+                      <div className="text-sm text-gray-500">Crawl Time</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Robots.txt Validation */}
+                {crawlResult.robots && (
+                  <div className="bg-white rounded-2xl shadow-xl p-6">
+                    <h3 className="text-xl font-bold mb-4 flex items-center gap-2" style={{ color: COLORS.primary }}>
+                      <Icons.Robot /> Robots.txt Validation
+                      <span className={`px-2 py-0.5 rounded-full text-sm ${crawlResult.robots.validation.isValid ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                        {crawlResult.robots.validation.isValid ? 'Valid' : 'Has Errors'}
+                      </span>
+                    </h3>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      {/* Validation Results */}
+                      <div>
+                        <div className="grid grid-cols-2 gap-3 mb-4">
+                          <div className={`p-3 rounded-lg text-center ${crawlResult.robots.validation.blocksGooglebot ? 'bg-red-50' : 'bg-green-50'}`}>
+                            <div className={`font-bold ${crawlResult.robots.validation.blocksGooglebot ? 'text-red-700' : 'text-green-700'}`}>
+                              {crawlResult.robots.validation.blocksGooglebot ? 'BLOCKED' : 'ALLOWED'}
+                            </div>
+                            <div className="text-xs text-gray-500">Googlebot</div>
+                          </div>
+                          <div className={`p-3 rounded-lg text-center ${crawlResult.robots.validation.blocksAll ? 'bg-red-50' : 'bg-green-50'}`}>
+                            <div className={`font-bold ${crawlResult.robots.validation.blocksAll ? 'text-red-700' : 'text-green-700'}`}>
+                              {crawlResult.robots.validation.blocksAll ? 'BLOCKS ALL' : 'OK'}
+                            </div>
+                            <div className="text-xs text-gray-500">All Bots</div>
+                          </div>
+                        </div>
+                        {crawlResult.robots.validation.errors.length > 0 && (
+                          <div className="mb-3">
+                            <div className="text-sm font-medium text-red-800 mb-2">Errors:</div>
+                            {crawlResult.robots.validation.errors.map((err, i) => (
+                              <div key={i} className="text-sm text-red-700 bg-red-50 p-2 rounded mb-1">{err}</div>
+                            ))}
+                          </div>
+                        )}
+                        {crawlResult.robots.validation.warnings.length > 0 && (
+                          <div className="mb-3">
+                            <div className="text-sm font-medium text-yellow-800 mb-2">Warnings:</div>
+                            {crawlResult.robots.validation.warnings.map((warn, i) => (
+                              <div key={i} className="text-sm text-yellow-700 bg-yellow-50 p-2 rounded mb-1">{warn}</div>
+                            ))}
+                          </div>
+                        )}
+                        {crawlResult.robots.validation.sitemaps.length > 0 && (
+                          <div>
+                            <div className="text-sm font-medium text-gray-700 mb-2">Sitemaps in robots.txt:</div>
+                            {crawlResult.robots.validation.sitemaps.map((sm, i) => (
+                              <div key={i} className="text-sm text-blue-600 bg-blue-50 p-2 rounded mb-1 truncate">{sm}</div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      {/* robots.txt Content */}
+                      <div>
+                        <div className="text-sm font-medium text-gray-700 mb-2">robots.txt Content:</div>
+                        <pre className="bg-gray-900 text-green-400 p-4 rounded-lg text-xs overflow-auto max-h-64 font-mono">
+                          {crawlResult.robots.content}
+                        </pre>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Sitemap Analysis */}
+                {crawlResult.sitemap && crawlResult.sitemap.totalUrls > 0 && (
+                  <div className="bg-white rounded-2xl shadow-xl p-6">
+                    <h3 className="text-xl font-bold mb-4 flex items-center gap-2" style={{ color: COLORS.primary }}>
+                      <Icons.Sitemap /> Sitemap Analysis
+                      <span className="px-2 py-0.5 rounded-full text-sm" style={{ backgroundColor: `${COLORS.accent}30`, color: COLORS.primary }}>
+                        {crawlResult.sitemap.totalUrls} URLs
+                      </span>
+                    </h3>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      <div>
+                        <div className="text-sm font-medium text-gray-700 mb-3">Sitemap URLs (first 20):</div>
+                        <div className="max-h-80 overflow-auto space-y-1">
+                          {crawlResult.sitemap.urls.slice(0, 20).map((sitemapUrl, i) => (
+                            <div key={i} className="flex items-center gap-2 p-2 bg-gray-50 rounded text-sm">
+                              <Icons.File />
+                              <a href={sitemapUrl.loc} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline truncate flex-1">{sitemapUrl.loc}</a>
+                              {sitemapUrl.lastmod && <span className="text-xs text-gray-400">{sitemapUrl.lastmod}</span>}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      {crawlResult.sitemap.sitemapIndexUrls.length > 0 && (
+                        <div>
+                          <div className="text-sm font-medium text-gray-700 mb-3">Sitemap Index:</div>
+                          <div className="space-y-1">
+                            {crawlResult.sitemap.sitemapIndexUrls.map((idx, i) => (
+                              <div key={i} className="p-2 bg-blue-50 rounded text-sm text-blue-700 truncate">{idx}</div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Crawled Pages */}
+                <div className="bg-white rounded-2xl shadow-xl p-6">
+                  <h3 className="text-xl font-bold mb-4" style={{ color: COLORS.primary }}>Crawled Pages</h3>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b">
+                          <th className="text-left py-2 px-3">URL</th>
+                          <th className="text-center py-2 px-3">Status</th>
+                          <th className="text-center py-2 px-3">Depth</th>
+                          <th className="text-center py-2 px-3">Words</th>
+                          <th className="text-center py-2 px-3">Links</th>
+                          <th className="text-left py-2 px-3">Issues</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {crawlResult.crawl.pages.slice(0, 30).map((page, i) => (
+                          <tr key={i} className="border-b hover:bg-gray-50">
+                            <td className="py-2 px-3">
+                              <div className="truncate max-w-xs text-blue-600">{page.url.replace(/^https?:\/\/[^/]+/, '')}</div>
+                              <div className="text-xs text-gray-400 truncate">{page.title || '(no title)'}</div>
+                            </td>
+                            <td className="text-center py-2 px-3">
+                              <span className={`px-2 py-0.5 rounded text-xs ${page.status === 200 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{page.status}</span>
+                            </td>
+                            <td className="text-center py-2 px-3">{page.depth}</td>
+                            <td className="text-center py-2 px-3">{page.wordCount}</td>
+                            <td className="text-center py-2 px-3">{page.internalLinks}/{page.externalLinks}</td>
+                            <td className="py-2 px-3">
+                              {page.issues.length > 0 ? (
+                                <div className="flex flex-wrap gap-1">
+                                  {page.issues.slice(0, 2).map((issue, j) => (
+                                    <span key={j} className="px-1.5 py-0.5 bg-yellow-100 text-yellow-700 rounded text-xs">{issue}</span>
+                                  ))}
+                                  {page.issues.length > 2 && <span className="text-xs text-gray-400">+{page.issues.length - 2}</span>}
+                                </div>
+                              ) : (
+                                <span className="text-green-600 text-xs">✓ OK</span>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* Issues Summary */}
+                {(crawlResult.crawl.brokenLinks.length > 0 || crawlResult.crawl.duplicateTitles.length > 0) && (
+                  <div className="bg-white rounded-2xl shadow-xl p-6">
+                    <h3 className="text-xl font-bold mb-4 text-red-700">Issues Found</h3>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      {crawlResult.crawl.brokenLinks.length > 0 && (
+                        <div>
+                          <h4 className="font-medium text-red-800 mb-2">Broken Links ({crawlResult.crawl.brokenLinks.length})</h4>
+                          <div className="space-y-2 max-h-60 overflow-auto">
+                            {crawlResult.crawl.brokenLinks.map((link, i) => (
+                              <div key={i} className="p-2 bg-red-50 rounded text-sm">
+                                <div className="font-mono text-red-700 truncate">{link.url}</div>
+                                <div className="text-xs text-red-500">Status: {link.status} | Found on: {link.foundOn}</div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {crawlResult.crawl.duplicateTitles.length > 0 && (
+                        <div>
+                          <h4 className="font-medium text-yellow-800 mb-2">Duplicate Titles ({crawlResult.crawl.duplicateTitles.length})</h4>
+                          <div className="space-y-2 max-h-60 overflow-auto">
+                            {crawlResult.crawl.duplicateTitles.map((dup, i) => (
+                              <div key={i} className="p-2 bg-yellow-50 rounded text-sm">
+                                <div className="font-medium text-yellow-800 truncate">{dup.title}</div>
+                                <div className="text-xs text-yellow-600">{dup.urls.length} pages share this title</div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Footer */}
-      <div className="text-center py-8 text-gray-400 text-sm">
-        SEO Audit • Full SEO Analysis • {new Date().getFullYear()}
+      <div className="text-center py-8 text-white/60 text-sm">
+        SEO Audit Tool • PageSpeed • Site Crawler • {new Date().getFullYear()}
       </div>
     </div>
   );
