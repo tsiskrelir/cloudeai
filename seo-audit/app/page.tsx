@@ -64,6 +64,7 @@ interface AuditResult {
     siteTree?: {
       tree: SiteTreeNode;
       totalUrls: number;
+      displayedUrls?: number;
       sitemapUrls: string[];
       currentPagePath: string[];
       issues: { url: string; issue: string; status?: number }[];
@@ -702,20 +703,31 @@ export default function SEOChecker() {
                 {results.technical.siteTree && (
                   <>
                     {/* Site tree stats */}
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                       <div className="p-4 rounded-lg text-center" style={{ backgroundColor: `${COLORS.primary}10` }}>
                         <div className="text-2xl font-bold" style={{ color: COLORS.primary }}>{results.technical.siteTree.totalUrls}</div>
-                        <div className="text-sm text-gray-500">Crawled URLs</div>
+                        <div className="text-sm text-gray-500">Total in Sitemap</div>
                       </div>
                       <div className="p-4 rounded-lg text-center" style={{ backgroundColor: `${COLORS.accent}15` }}>
-                        <div className="text-2xl font-bold" style={{ color: COLORS.primary }}>{results.technical.siteTree.sitemapUrls.length}</div>
-                        <div className="text-sm text-gray-500">In Sitemap</div>
+                        <div className="text-2xl font-bold" style={{ color: COLORS.primary }}>{results.technical.siteTree.displayedUrls || results.technical.siteTree.sitemapUrls.length}</div>
+                        <div className="text-sm text-gray-500">Displayed</div>
+                      </div>
+                      <div className="p-4 rounded-lg text-center bg-gray-50">
+                        <div className="text-2xl font-bold text-gray-700">{results.technical.siteTree.sitemapUrls.length}</div>
+                        <div className="text-sm text-gray-500">Tree URLs</div>
                       </div>
                       <div className={`p-4 rounded-lg text-center ${results.technical.siteTree.issues.length > 0 ? 'bg-red-50' : 'bg-green-50'}`}>
                         <div className={`text-2xl font-bold ${results.technical.siteTree.issues.length > 0 ? 'text-red-700' : 'text-green-700'}`}>{results.technical.siteTree.issues.length}</div>
                         <div className="text-sm text-gray-500">Issues</div>
                       </div>
                     </div>
+
+                    {/* Show note when URLs are limited */}
+                    {results.technical.siteTree.totalUrls > (results.technical.siteTree.displayedUrls || results.technical.siteTree.sitemapUrls.length) && (
+                      <div className="p-3 rounded-lg bg-blue-50 text-sm text-blue-700">
+                        Showing {results.technical.siteTree.displayedUrls || results.technical.siteTree.sitemapUrls.length} of {results.technical.siteTree.totalUrls} total URLs in sitemap for performance.
+                      </div>
+                    )}
 
                     {/* Current page path */}
                     {results.technical.siteTree.currentPagePath.length > 0 && (
@@ -930,7 +942,7 @@ export default function SEOChecker() {
                     {results.technical.llmsTxt.content && (
                       <details>
                         <summary className="cursor-pointer text-sm text-gray-600 hover:text-gray-800">View llms.txt content</summary>
-                        <pre className="mt-2 p-3 bg-gray-800 text-green-400 rounded text-xs overflow-auto max-h-48 whitespace-pre-wrap">{results.technical.llmsTxt.content}</pre>
+                        <pre className="mt-2 p-3 bg-gray-800 text-green-400 rounded text-xs overflow-auto max-h-[500px] whitespace-pre-wrap">{results.technical.llmsTxt.content}</pre>
                       </details>
                     )}
                   </>
@@ -1240,21 +1252,33 @@ export default function SEOChecker() {
                 <div className="text-center p-4 bg-gray-50 rounded-lg"><div className="text-2xl font-bold text-gray-700">{results.links.nofollow}</div><div className="text-sm text-gray-600">Nofollow</div></div>
               </div>
 
-              {/* Broken Links */}
-              {results.links.brokenList && results.links.brokenList.length > 0 && (
-                <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
-                  <div className="font-medium text-red-800 mb-2">Broken/Empty Links ({results.links.brokenList.length})</div>
-                  <div className="space-y-2 max-h-48 overflow-auto">
-                    {results.links.brokenList.map((link, i) => (
-                      <div key={i} className="p-2 bg-white rounded text-sm border border-red-100">
-                        <code className="text-red-700 break-all">{link.href || '(empty)'}</code>
-                        {link.text && <span className="text-gray-500 ml-2">- {link.text}</span>}
-                        {link.reason && <div className="text-xs text-red-600 mt-1">{link.reason}</div>}
-                      </div>
-                    ))}
+              {/* Broken Links - combine empty hrefs and HTTP 404 errors from sitemap */}
+              {(() => {
+                const emptyBroken = results.links.brokenList || [];
+                const http404Broken = results.technical.siteTree?.issues?.filter(i => i.status === 404) || [];
+                const totalBroken = emptyBroken.length + http404Broken.length;
+                if (totalBroken === 0) return null;
+                return (
+                  <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+                    <div className="font-medium text-red-800 mb-2">Broken/Empty Links ({totalBroken})</div>
+                    <div className="space-y-2 max-h-64 overflow-auto">
+                      {emptyBroken.map((link, i) => (
+                        <div key={`empty-${i}`} className="p-2 bg-white rounded text-sm border border-red-100">
+                          <code className="text-red-700 break-all">{link.href || '(empty)'}</code>
+                          {link.text && <span className="text-gray-500 ml-2">- {link.text}</span>}
+                          {link.reason && <div className="text-xs text-red-600 mt-1">{link.reason}</div>}
+                        </div>
+                      ))}
+                      {http404Broken.map((issue, i) => (
+                        <div key={`http-${i}`} className="p-2 bg-white rounded text-sm border border-red-100">
+                          <code className="text-red-700 break-all">{issue.url}</code>
+                          <div className="text-xs text-red-600 mt-1">HTTP 404 - Page not found</div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              )}
+                );
+              })()}
 
               {/* Internal Links */}
               {results.links.internalUrls && results.links.internalUrls.length > 0 && (

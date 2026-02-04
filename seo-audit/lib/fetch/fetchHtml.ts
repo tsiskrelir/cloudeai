@@ -171,7 +171,7 @@ export async function checkLlmsTxt(
           const firstChar = bodyLower.charAt(0);
           // llms.txt should start with text, not HTML
           if (firstChar !== '<' && !bodyLower.startsWith('<!doctype') && !bodyLower.startsWith('<html')) {
-            return { found: true, content: res.body.substring(0, 500) };
+            return { found: true, content: res.body.substring(0, 10000) };
           }
         }
       } catch {
