@@ -82,7 +82,7 @@ interface AuditResult {
   };
   international: { hreflangs: HreflangTag[]; hasXDefault: boolean; hasSelfReference: boolean; canonicalInHreflang: boolean; langMatchesHreflang: boolean; issues: string[]; };
   content: { headings: { h1: string[]; h2: string[]; h3: string[]; h4: string[]; h5: string[]; h6: string[] }; wordCount: number; characterCount: number; sentenceCount: number; paragraphCount: number; readingTime: number; titleH1Duplicate: boolean; duplicateParagraphs: number; aiScore: number; aiPhrases: string[]; readability: ReadabilityData; keywordDensity: KeywordDensity[]; };
-  links: { total: number; internal: number; external: number; broken: number; brokenList: { href: string; text: string; reason?: string; htmlTag?: string }[]; genericAnchors: number; genericAnchorsList: { text: string; href: string }[]; nofollow: number; sponsored: number; ugc: number; unsafeExternalCount: number; hasFooterLinks: boolean; hasNavLinks: boolean; };
+  links: { total: number; internal: number; external: number; broken: number; brokenList: { href: string; text: string; reason?: string; htmlTag?: string }[]; genericAnchors: number; genericAnchorsList: { text: string; href: string }[]; nofollow: number; sponsored: number; ugc: number; unsafeExternalCount: number; hasFooterLinks: boolean; hasNavLinks: boolean; internalUrls?: { href: string; text: string }[]; externalUrls?: { href: string; text: string }[]; };
   images: { total: number; withoutAlt: number; withEmptyAlt: number; withoutDimensions: number; lazyLoaded: number; lazyAboveFold: number; clickableWithoutAlt: number; decorativeCount: number; largeImages: number; modernFormats: number; srcsetCount: number; imageSizeAnalysis?: { checked: number; largeCount: number; oldFormatCount: number; largeList: { src: string; size: string; type: string | null }[]; oldFormatList: { src: string; type: string | null }[] } };
   schema: { count: number; types: string[]; valid: number; invalid: number; details: SchemaItem[]; missingContext: number; hasWebSiteSearch: boolean; hasBreadcrumb: boolean; hasOrganization: boolean; hasFAQ: boolean; hasHowTo: boolean; };
   social: { og: { title: string | null; description: string | null; image: string | null; url: string | null; type: string | null; siteName: string | null; locale: string | null }; twitter: { card: string | null; site: string | null; creator: string | null; title: string | null; description: string | null; image: string | null }; isComplete: boolean; hasArticleTags: boolean; };
@@ -890,6 +890,56 @@ export default function SEOChecker() {
                   )}
                 </div>
               )}
+
+              {/* Robots.txt Validation */}
+              <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+                <div className="text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
+                  Robots.txt
+                  <span className={`px-2 py-0.5 rounded-full text-xs ${results.technical.robotsTxt.found ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                    {results.technical.robotsTxt.found ? 'Found' : 'Not Found'}
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <CheckBadge ok={results.technical.robotsTxt.found} label="robots.txt exists" />
+                  <CheckBadge ok={!results.technical.robotsTxt.blocksAll} label={results.technical.robotsTxt.blocksAll ? 'BLOCKS ALL!' : 'Allows crawling'} />
+                  <CheckBadge ok={results.technical.robotsTxt.hasSitemap} label="Has sitemap reference" />
+                  <CheckBadge ok={results.technical.sitemap.found} label="Sitemap exists" />
+                </div>
+                {results.technical.robotsTxt.content && (
+                  <details className="mt-3">
+                    <summary className="cursor-pointer text-sm text-gray-600 hover:text-gray-800">View robots.txt content</summary>
+                    <pre className="mt-2 p-3 bg-gray-800 text-green-400 rounded text-xs overflow-auto max-h-48 whitespace-pre-wrap">{results.technical.robotsTxt.content}</pre>
+                  </details>
+                )}
+              </div>
+
+              {/* LLMs.txt */}
+              <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+                <div className="text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
+                  LLMs.txt
+                  <span className={`px-2 py-0.5 rounded-full text-xs ${results.technical.llmsTxt?.found ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                    {results.technical.llmsTxt?.found ? 'Found' : 'Not Found'}
+                  </span>
+                </div>
+                {results.technical.llmsTxt?.found ? (
+                  <>
+                    <div className="grid grid-cols-2 gap-3 mb-3">
+                      <CheckBadge ok={results.technical.llmsTxt.found} label="llms.txt exists" />
+                      <CheckBadge ok={results.technical.llmsTxt.mentioned} label="Mentions website" />
+                    </div>
+                    {results.technical.llmsTxt.content && (
+                      <details>
+                        <summary className="cursor-pointer text-sm text-gray-600 hover:text-gray-800">View llms.txt content</summary>
+                        <pre className="mt-2 p-3 bg-gray-800 text-green-400 rounded text-xs overflow-auto max-h-48 whitespace-pre-wrap">{results.technical.llmsTxt.content}</pre>
+                      </details>
+                    )}
+                  </>
+                ) : (
+                  <div className="text-sm text-gray-500">
+                    LLMs.txt helps AI assistants understand your site. <a href="https://llmstxt.org/" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">Learn more</a>
+                  </div>
+                )}
+              </div>
             </Section>
 
             {/* DOM Analysis */}
@@ -1181,13 +1231,86 @@ export default function SEOChecker() {
 
             {/* Links */}
             <Section title="Links" icon={Icons.Link} id="links">
-              <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mt-4">
+              <div className="grid grid-cols-2 md:grid-cols-6 gap-4 mt-4">
                 <div className="text-center p-4 rounded-lg" style={{ backgroundColor: `${COLORS.primary}10` }}><div className="text-2xl font-bold" style={{ color: COLORS.primary }}>{results.links.total}</div><div className="text-sm text-gray-600">Total</div></div>
                 <div className="text-center p-4 bg-green-50 rounded-lg"><div className="text-2xl font-bold text-green-700">{results.links.internal}</div><div className="text-sm text-green-600">Internal</div></div>
                 <div className="text-center p-4 rounded-lg" style={{ backgroundColor: `${COLORS.secondary}15` }}><div className="text-2xl font-bold" style={{ color: COLORS.primary }}>{results.links.external}</div><div className="text-sm text-gray-600">External</div></div>
-                <div className={`text-center p-4 rounded-lg ${results.links.broken > 0 ? 'bg-red-50' : 'bg-gray-50'}`}><div className={`text-2xl font-bold ${results.links.broken > 0 ? 'text-red-700' : 'text-gray-700'}`}>{results.links.broken}</div><div className="text-sm text-gray-600">Empty</div></div>
+                <div className={`text-center p-4 rounded-lg ${results.links.broken > 0 ? 'bg-red-50' : 'bg-gray-50'}`}><div className={`text-2xl font-bold ${results.links.broken > 0 ? 'text-red-700' : 'text-gray-700'}`}>{results.links.broken}</div><div className="text-sm text-gray-600">Empty/Broken</div></div>
                 <div className={`text-center p-4 rounded-lg ${results.links.genericAnchors > 0 ? 'bg-yellow-50' : 'bg-gray-50'}`}><div className={`text-2xl font-bold ${results.links.genericAnchors > 0 ? 'text-yellow-700' : 'text-gray-700'}`}>{results.links.genericAnchors}</div><div className="text-sm text-gray-600">Generic</div></div>
+                <div className="text-center p-4 bg-gray-50 rounded-lg"><div className="text-2xl font-bold text-gray-700">{results.links.nofollow}</div><div className="text-sm text-gray-600">Nofollow</div></div>
               </div>
+
+              {/* Broken Links */}
+              {results.links.brokenList && results.links.brokenList.length > 0 && (
+                <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+                  <div className="font-medium text-red-800 mb-2">Broken/Empty Links ({results.links.brokenList.length})</div>
+                  <div className="space-y-2 max-h-48 overflow-auto">
+                    {results.links.brokenList.map((link, i) => (
+                      <div key={i} className="p-2 bg-white rounded text-sm border border-red-100">
+                        <code className="text-red-700 break-all">{link.href || '(empty)'}</code>
+                        {link.text && <span className="text-gray-500 ml-2">- {link.text}</span>}
+                        {link.reason && <div className="text-xs text-red-600 mt-1">{link.reason}</div>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Internal Links */}
+              {results.links.internalUrls && results.links.internalUrls.length > 0 && (
+                <div className="mt-4">
+                  <details className="group">
+                    <summary className="cursor-pointer font-medium text-green-800 hover:text-green-600">
+                      Internal Links ({results.links.internalUrls.length}) <span className="text-gray-400 text-sm">click to expand</span>
+                    </summary>
+                    <div className="mt-2 p-4 bg-green-50 border border-green-200 rounded-lg max-h-64 overflow-auto">
+                      <div className="space-y-1">
+                        {results.links.internalUrls.map((link, i) => (
+                          <div key={i} className="text-sm">
+                            <a href={link.href} target="_blank" rel="noopener noreferrer" className="text-green-700 hover:underline break-all">{link.href}</a>
+                            {link.text && <span className="text-gray-500 ml-2">({link.text})</span>}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </details>
+                </div>
+              )}
+
+              {/* External Links */}
+              {results.links.externalUrls && results.links.externalUrls.length > 0 && (
+                <div className="mt-4">
+                  <details className="group">
+                    <summary className="cursor-pointer font-medium hover:text-blue-600" style={{ color: COLORS.primary }}>
+                      External Links ({results.links.externalUrls.length}) <span className="text-gray-400 text-sm">click to expand</span>
+                    </summary>
+                    <div className="mt-2 p-4 border rounded-lg max-h-64 overflow-auto" style={{ backgroundColor: `${COLORS.secondary}10`, borderColor: `${COLORS.secondary}30` }}>
+                      <div className="space-y-1">
+                        {results.links.externalUrls.map((link, i) => (
+                          <div key={i} className="text-sm">
+                            <a href={link.href} target="_blank" rel="noopener noreferrer" className="hover:underline break-all" style={{ color: COLORS.primary }}>{link.href}</a>
+                            {link.text && <span className="text-gray-500 ml-2">({link.text})</span>}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </details>
+                </div>
+              )}
+
+              {/* Generic Anchors */}
+              {results.links.genericAnchorsList && results.links.genericAnchorsList.length > 0 && (
+                <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                  <div className="font-medium text-yellow-800 mb-2">Generic Anchor Text (SEO Issue)</div>
+                  <div className="space-y-1 max-h-32 overflow-auto">
+                    {results.links.genericAnchorsList.map((link, i) => (
+                      <div key={i} className="text-sm text-yellow-700">
+                        &quot;{link.text}&quot; → <span className="text-gray-600 break-all">{link.href}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </Section>
 
             {/* Images */}
@@ -1234,10 +1357,68 @@ export default function SEOChecker() {
             {results.schema.count > 0 && (
               <Section title="Schema.org" icon={Icons.Code} id="schema" badge={<span className="px-2 py-0.5 rounded-full text-sm" style={{ backgroundColor: `${COLORS.highlight}15`, color: COLORS.highlight }}>{results.schema.count}</span>}>
                 <div className="mt-4">
+                  {/* Schema Types */}
                   <div className="flex flex-wrap gap-2">
                     {results.schema.types.map((t, i) => <span key={i} className="px-3 py-1 rounded-full text-sm" style={{ backgroundColor: `${COLORS.highlight}15`, color: COLORS.highlight }}>{t}</span>)}
                   </div>
-                  <div className="text-sm text-gray-500 mt-3">{results.schema.valid} valid{results.schema.invalid > 0 && <span className="text-red-600">, {results.schema.invalid} invalid</span>}</div>
+
+                  {/* Validation Summary */}
+                  <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <div className={`p-3 rounded-lg text-center ${results.schema.valid > 0 ? 'bg-green-50' : 'bg-gray-50'}`}>
+                      <div className={`text-xl font-bold ${results.schema.valid > 0 ? 'text-green-700' : 'text-gray-500'}`}>{results.schema.valid}</div>
+                      <div className="text-xs text-gray-500">Valid</div>
+                    </div>
+                    <div className={`p-3 rounded-lg text-center ${results.schema.invalid > 0 ? 'bg-red-50' : 'bg-gray-50'}`}>
+                      <div className={`text-xl font-bold ${results.schema.invalid > 0 ? 'text-red-700' : 'text-gray-500'}`}>{results.schema.invalid}</div>
+                      <div className="text-xs text-gray-500">Invalid</div>
+                    </div>
+                    <div className={`p-3 rounded-lg text-center ${results.schema.missingContext > 0 ? 'bg-yellow-50' : 'bg-gray-50'}`}>
+                      <div className={`text-xl font-bold ${results.schema.missingContext > 0 ? 'text-yellow-700' : 'text-gray-500'}`}>{results.schema.missingContext}</div>
+                      <div className="text-xs text-gray-500">Missing @context</div>
+                    </div>
+                    <div className="p-3 rounded-lg text-center bg-gray-50">
+                      <div className="text-xl font-bold text-gray-700">{results.schema.count}</div>
+                      <div className="text-xs text-gray-500">Total</div>
+                    </div>
+                  </div>
+
+                  {/* Rich Result Eligibility */}
+                  <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+                    <div className="text-sm font-medium text-gray-700 mb-2">Rich Results Eligibility</div>
+                    <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+                      <CheckBadge ok={results.schema.hasOrganization} label="Organization" />
+                      <CheckBadge ok={results.schema.hasBreadcrumb} label="Breadcrumb" />
+                      <CheckBadge ok={results.schema.hasFAQ} label="FAQ" />
+                      <CheckBadge ok={results.schema.hasHowTo} label="HowTo" />
+                      <CheckBadge ok={results.schema.hasWebSiteSearch} label="SearchBox" />
+                    </div>
+                  </div>
+
+                  {/* Validation Details */}
+                  {results.schema.details && results.schema.details.length > 0 && (
+                    <details className="mt-4">
+                      <summary className="cursor-pointer text-sm font-medium text-gray-700 hover:text-gray-900">Schema Validation Details</summary>
+                      <div className="mt-2 space-y-2 max-h-64 overflow-auto">
+                        {results.schema.details.map((schema, i) => (
+                          <div key={i} className={`p-3 rounded-lg ${schema.valid ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
+                            <div className="flex items-center justify-between">
+                              <span className={`font-medium ${schema.valid ? 'text-green-800' : 'text-red-800'}`}>{schema.type}</span>
+                              <span className={`text-xs px-2 py-0.5 rounded ${schema.valid ? 'bg-green-200 text-green-800' : 'bg-red-200 text-red-800'}`}>
+                                {schema.valid ? '✓ Valid' : '✗ Invalid'}
+                              </span>
+                            </div>
+                            {schema.issues && schema.issues.length > 0 && (
+                              <ul className="mt-2 text-xs text-red-700 space-y-1">
+                                {schema.issues.map((issue, j) => (
+                                  <li key={j}>• {issue}</li>
+                                ))}
+                              </ul>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </details>
+                  )}
                 </div>
               </Section>
             )}

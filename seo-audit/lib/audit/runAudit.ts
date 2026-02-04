@@ -113,8 +113,39 @@ const INTERNATIONAL_LOANWORDS = new Set([
   'international', 'global', 'world', 'europe', 'european', 'usa', 'america', 'american'
 ]);
 
+// ISO 639-1 language code mapping
+const ISO_LANG_MAP: Record<string, 'ka' | 'ru' | 'de' | 'en' | 'es' | 'fr' | 'it' | 'pt' | 'nl' | 'pl' | 'tr'> = {
+  'ka': 'ka', 'ge': 'ka', // Georgian
+  'ru': 'ru', 'uk': 'ru', 'be': 'ru', // Russian, Ukrainian, Belarusian
+  'de': 'de', 'de-de': 'de', 'de-at': 'de', 'de-ch': 'de', // German variants
+  'en': 'en', 'en-us': 'en', 'en-gb': 'en', 'en-au': 'en', // English variants
+  'es': 'es', 'es-es': 'es', 'es-mx': 'es', 'es-ar': 'es', // Spanish variants
+  'fr': 'fr', 'fr-fr': 'fr', 'fr-ca': 'fr', // French variants
+  'it': 'it', 'it-it': 'it', // Italian
+  'pt': 'pt', 'pt-br': 'pt', 'pt-pt': 'pt', // Portuguese
+  'nl': 'nl', 'nl-nl': 'nl', 'nl-be': 'nl', // Dutch
+  'pl': 'pl', 'pl-pl': 'pl', // Polish
+  'tr': 'tr', 'tr-tr': 'tr', // Turkish
+};
+
+// Get language from ISO code
+function getLanguageFromISO(langCode: string | null): 'ka' | 'ru' | 'de' | 'en' | 'es' | null {
+  if (!langCode) return null;
+  const normalized = langCode.toLowerCase().trim();
+  const mapped = ISO_LANG_MAP[normalized] || ISO_LANG_MAP[normalized.split('-')[0]];
+  // Return only the languages we support for readability scoring
+  if (mapped === 'ka' || mapped === 'ru' || mapped === 'de' || mapped === 'en' || mapped === 'es') {
+    return mapped;
+  }
+  return null;
+}
+
 // Detect primary language of text
-function detectLanguage(text: string): 'ka' | 'ru' | 'de' | 'en' | 'es' {
+function detectLanguage(text: string, htmlLang?: string | null): 'ka' | 'ru' | 'de' | 'en' | 'es' {
+  // First try ISO language code from HTML lang attribute
+  const isoLang = getLanguageFromISO(htmlLang || null);
+  if (isoLang) return isoLang;
+
   const sample = text.substring(0, 2000);
   const sampleLower = sample.toLowerCase();
 
@@ -635,26 +666,19 @@ function analyzeContent(doc: Document, htmlLower: string, title: string, htmlLan
 
   const readability = calculateReadability(bodyText);
 
-  // Detect actual content language - prioritize HTML lang attribute
-  const contentLanguage = detectLanguage(bodyText);
+  // Detect actual content language - prioritize HTML lang attribute via ISO code
+  // detectLanguage now checks ISO lang first, then falls back to content analysis
+  const contentLanguage = detectLanguage(bodyText, htmlLang);
 
-  // Map HTML lang attribute to our language codes
-  let declaredLanguage: 'ka' | 'ru' | 'de' | 'en' | 'es' | null = null;
-  if (htmlLang) {
-    const langCode = htmlLang.toLowerCase().split('-')[0];
-    if (langCode === 'ka') declaredLanguage = 'ka';
-    else if (langCode === 'ru' || langCode === 'uk' || langCode === 'be') declaredLanguage = 'ru'; // Ukrainian, Belarusian treated as Russian for readability
-    else if (langCode === 'de') declaredLanguage = 'de';
-    else if (langCode === 'en') declaredLanguage = 'en';
-    else if (langCode === 'es') declaredLanguage = 'es'; // Spanish
-  }
+  // Get declared language from HTML lang attribute
+  const declaredLanguage = getLanguageFromISO(htmlLang);
 
-  // Use declared language if available, otherwise use detected language
-  const detectedLanguage = declaredLanguage || contentLanguage;
+  // For detectedLanguage, use the ISO-aware detection
+  const detectedLanguage = contentLanguage;
 
   // Detect H1/visible title language
   const visibleTitleText = headings.h1[0] || title;
-  const titleLanguage = visibleTitleText.length > 10 ? detectLanguage(visibleTitleText) : null;
+  const titleLanguage = visibleTitleText.length > 10 ? detectLanguage(visibleTitleText, null) : null;
 
   // Check if title language matches content language
   // Allow brand names in English: if title is detected as English but declared language is different,
@@ -684,7 +708,7 @@ function analyzeContent(doc: Document, htmlLower: string, title: string, htmlLan
       titleContentLangMismatch = false;
     } else {
       // Check if remaining text matches declared language
-      const remainingLang = detectLanguage(remainingText);
+      const remainingLang = detectLanguage(remainingText, null);
       if (remainingLang === declaredLanguage) {
         titleContentLangMismatch = false;
       }

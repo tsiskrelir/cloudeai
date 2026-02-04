@@ -851,10 +851,11 @@ export interface SiteTreeNode {
 export async function buildSiteTree(
   baseUrl: string,
   currentPageUrl: string,
-  maxUrls = 100
+  maxUrls = 500
 ): Promise<{
   tree: SiteTreeNode;
   totalUrls: number;
+  displayedUrls: number;
   sitemapUrls: string[];
   currentPagePath: string[];
   issues: { url: string; issue: string; status?: number }[];
@@ -870,7 +871,8 @@ export async function buildSiteTree(
     const root: SiteTreeNode = {
       path: '/',
       fullUrl: `${parsed.protocol}//${parsed.host}/`,
-      children: []
+      children: [],
+      inSitemap: false
     };
 
     // Fetch sitemap
@@ -880,6 +882,7 @@ export async function buildSiteTree(
     ];
 
     let allUrls: string[] = [];
+    let totalUrlsInSitemap = 0;
 
     for (const sitemapUrl of sitemapLocations) {
       try {
@@ -888,7 +891,7 @@ export async function buildSiteTree(
           // Check if it's a sitemap index
           if (res.body.includes('<sitemapindex')) {
             const childSitemapMatches = res.body.match(/<loc>([^<]+)<\/loc>/g) || [];
-            const childSitemaps = childSitemapMatches.map(m => m.replace(/<\/?loc>/g, '')).slice(0, 10);
+            const childSitemaps = childSitemapMatches.map(m => m.replace(/<\/?loc>/g, '')).slice(0, 20);
 
             for (const childUrl of childSitemaps) {
               try {
@@ -914,19 +917,40 @@ export async function buildSiteTree(
       }
     }
 
-    // Limit URLs and store
-    allUrls = [...new Set(allUrls)].slice(0, maxUrls);
-    sitemapUrls.push(...allUrls);
+    // Store total count before limiting
+    const uniqueUrls = [...new Set(allUrls)];
+    totalUrlsInSitemap = uniqueUrls.length;
+
+    // Limit URLs for display but keep count
+    const displayUrls = uniqueUrls.slice(0, maxUrls);
+    sitemapUrls.push(...displayUrls);
 
     // Build tree structure from URLs
-    const normalizedCurrentPage = currentPageUrl.toLowerCase().replace(/\/$/, '');
+    // Normalize current page URL - handle both with and without trailing slash
+    const currentParsed = new URL(currentPageUrl);
+    const currentPathNormalized = currentParsed.pathname === '/' ? '/' : currentParsed.pathname.replace(/\/$/, '');
+    const normalizedCurrentPage = `${currentParsed.protocol}//${currentParsed.hostname}${currentPathNormalized}`.toLowerCase();
 
-    for (const url of allUrls) {
+    // Check if homepage
+    const isHomepage = currentPathNormalized === '/' || currentPathNormalized === '';
+
+    for (const url of displayUrls) {
       try {
         const urlParsed = new URL(url);
         if (urlParsed.hostname !== parsed.hostname) continue;
 
-        const pathParts = urlParsed.pathname.split('/').filter(p => p);
+        const urlPath = urlParsed.pathname;
+
+        // Check if this URL is the homepage (root)
+        if (urlPath === '/' || urlPath === '') {
+          root.inSitemap = true;
+          if (isHomepage) {
+            root.isCurrentPage = true;
+          }
+          continue;
+        }
+
+        const pathParts = urlPath.split('/').filter(p => p);
         let currentNode = root;
 
         for (let i = 0; i < pathParts.length; i++) {
@@ -978,16 +1002,50 @@ export async function buildSiteTree(
     findCurrentPagePath(root, []);
 
     // Check if current page is in sitemap
-    const currentPageInSitemap = sitemapUrls.some(
-      u => u.toLowerCase().replace(/\/$/, '') === normalizedCurrentPage
-    );
-    if (!currentPageInSitemap && currentPageUrl !== baseUrl) {
-      issues.push({ url: currentPageUrl, issue: 'Current page not found in sitemap' });
+    // Normalize URLs for comparison - handle trailing slashes and www
+    const normalizeForComparison = (u: string) => {
+      try {
+        const p = new URL(u);
+        const path = p.pathname === '/' ? '/' : p.pathname.replace(/\/$/, '');
+        return `${p.protocol}//${p.hostname.replace(/^www\./, '')}${path}`.toLowerCase();
+      } catch {
+        return u.toLowerCase().replace(/\/$/, '');
+      }
+    };
+
+    const normalizedCurrentForCheck = normalizeForComparison(currentPageUrl);
+    const currentPageInSitemap = uniqueUrls.some(u => normalizeForComparison(u) === normalizedCurrentForCheck);
+
+    // Mark root if current page is homepage
+    if (isHomepage && root.inSitemap) {
+      root.isCurrentPage = true;
+    }
+
+    if (!currentPageInSitemap) {
+      // Check if it's the homepage - homepage URLs can be tricky
+      const homepageVariants = [
+        `${parsed.protocol}//${parsed.hostname}`,
+        `${parsed.protocol}//${parsed.hostname}/`,
+        `${parsed.protocol}//www.${parsed.hostname}`,
+        `${parsed.protocol}//www.${parsed.hostname}/`
+      ];
+
+      const isHomepageInSitemap = isHomepage && uniqueUrls.some(u => {
+        const normalized = normalizeForComparison(u);
+        return homepageVariants.some(h => normalizeForComparison(h) === normalized) ||
+               normalized.endsWith('/' + parsed.hostname) ||
+               normalized.endsWith('/' + parsed.hostname + '/');
+      });
+
+      if (!isHomepageInSitemap) {
+        issues.push({ url: currentPageUrl, issue: 'Current page not found in sitemap' });
+      }
     }
 
     return {
       tree: root,
-      totalUrls: sitemapUrls.length,
+      totalUrls: totalUrlsInSitemap,
+      displayedUrls: displayUrls.length,
       sitemapUrls,
       currentPagePath,
       issues
@@ -996,6 +1054,7 @@ export async function buildSiteTree(
     return {
       tree: { path: '/', fullUrl: baseUrl, children: [] },
       totalUrls: 0,
+      displayedUrls: 0,
       sitemapUrls: [],
       currentPagePath: [],
       issues
