@@ -459,12 +459,47 @@ function analyzeTechnical(doc: Document, sourceUrl: string, htmlLower: string, o
   const language = doc.documentElement?.getAttribute('lang') || null;
   const robotsTxt = options?.robotsTxt;
 
+  // Helper to check if robots.txt blocks all crawlers
+  const checkRobotsBlocksAll = (content: string): boolean => {
+    // Only blocks all if there's "User-agent: *" with "Disallow: /" and no "Allow: /"
+    const lines = content.split('\n').map(l => l.trim().toLowerCase());
+    let inWildcardSection = false;
+    let hasDisallowRoot = false;
+    let hasAllowRoot = false;
+
+    for (const line of lines) {
+      if (line.startsWith('user-agent:')) {
+        const agent = line.replace('user-agent:', '').trim();
+        inWildcardSection = agent === '*';
+      } else if (inWildcardSection) {
+        if (line.startsWith('disallow:')) {
+          const path = line.replace('disallow:', '').trim();
+          if (path === '/' || path === '') {
+            // Empty disallow means allow all, "/" means disallow all
+            if (path === '/') hasDisallowRoot = true;
+          }
+        } else if (line.startsWith('allow:')) {
+          const path = line.replace('allow:', '').trim();
+          if (path === '/' || path === '/*') hasAllowRoot = true;
+        }
+      }
+    }
+
+    // Only blocks all if disallow root AND no allow root
+    return hasDisallowRoot && !hasAllowRoot;
+  };
+
   return {
     title: { value: title, visibleTitle, length: title.length, isOptimal: title.length >= 30 && title.length <= 60 },
     metaDesc: { value: metaDesc, length: metaDesc.length, isOptimal: metaDesc.length >= 120 && metaDesc.length <= 160 },
     canonical: { href: canonicalHref, count: canonicals.length, isCrossDomain },
     robots: { meta: robotsMeta, hasNoindex: (robotsMeta?.includes('noindex') || googlebotMeta.includes('noindex')) ?? false, hasNofollow: robotsMeta?.includes('nofollow') ?? false, xRobotsTag: null },
-    robotsTxt: { found: !!robotsTxt, content: robotsTxt?.substring(0, 500) || null, blocksAll: robotsTxt ? /disallow:\s*\/\s*$/im.test(robotsTxt) : false, hasSitemap: robotsTxt ? /sitemap:/i.test(robotsTxt) : false },
+    robotsTxt: {
+      found: !!robotsTxt,
+      content: robotsTxt?.substring(0, 2000) || null,
+      blocksAll: robotsTxt ? checkRobotsBlocksAll(robotsTxt) : false,
+      hasSitemap: robotsTxt ? /sitemap:/i.test(robotsTxt) : false
+    },
     sitemap: { found: options?.sitemapFound ?? false, url: null },
     llmsTxt: { found: options?.llmsTxtFound ?? false, mentioned: htmlLower.includes('llms.txt') || htmlLower.includes('llms-txt') },
     language, charset,
@@ -1349,12 +1384,20 @@ function analyzeTrustSignals(doc: Document, schema: any) {
   const bodyText = doc.body?.textContent?.toLowerCase() || '';
   const htmlLower = doc.documentElement?.outerHTML?.toLowerCase() || '';
 
-  const hasAboutPage = hrefs.some((h) => h.includes('about') || h.includes('შესახებ')) || texts.some((t) => t.includes('about') || t.includes('შესახებ'));
-  const hasContactPage = hrefs.some((h) => h.includes('contact') || h.includes('კონტაქტ')) || texts.some((t) => t.includes('contact') || t.includes('კონტაქტ'));
-  const hasPrivacyPage = hrefs.some((h) => h.includes('privacy') || h.includes('კონფიდენციალ')) || texts.some((t) => t.includes('privacy') || t.includes('კონფიდენციალ'));
+  // About page detection - check multiple languages
+  const aboutPatterns = ['about', 'über-uns', 'ueber-uns', 'uber-uns', 'unternehmen', 'wir', 'impressum', 'შესახებ', 'о-нас', 'chi-siamo', 'qui-sommes-nous', 'quienes-somos'];
+  const hasAboutPage = hrefs.some((h) => aboutPatterns.some((p) => h.includes(p))) || texts.some((t) => aboutPatterns.some((p) => t.includes(p)));
+  // Contact page detection
+  const contactPatterns = ['contact', 'kontakt', 'კონტაქტ', 'contatto', 'contacto', 'связаться'];
+  const hasContactPage = hrefs.some((h) => contactPatterns.some((p) => h.includes(p))) || texts.some((t) => contactPatterns.some((p) => t.includes(p)));
+  // Privacy page detection
+  const privacyPatterns = ['privacy', 'datenschutz', 'კონფიდენციალ', 'privacidad', 'confidentialite', 'riservatezza'];
+  const hasPrivacyPage = hrefs.some((h) => privacyPatterns.some((p) => h.includes(p))) || texts.some((t) => privacyPatterns.some((p) => t.includes(p)));
   const hasTermsPage = hrefs.some((h) => PATTERNS.TRUST_PATTERNS.terms.some((p) => h.includes(p)));
   const hasCookiePolicy = hrefs.some((h) => PATTERNS.TRUST_PATTERNS.cookie.some((p) => h.includes(p)));
-  const hasAuthor = !!(doc.querySelector('[rel="author"]') || doc.querySelector('.author') || doc.querySelector('[itemprop="author"]') || doc.querySelector('meta[name="author"]'));
+  // Author detection - check multiple selectors and patterns
+  const authorSelectors = ['[rel="author"]', '.author', '[itemprop="author"]', 'meta[name="author"]', '.post-author', '.entry-author', '.article-author', '[class*="author"]', '.verfasser', '.autor', '.by-author', '.byline'];
+  const hasAuthor = authorSelectors.some((sel) => !!doc.querySelector(sel)) || bodyText.includes('geschrieben von') || bodyText.includes('von:') || bodyText.includes('author:') || bodyText.includes('written by');
   const hasPublishDate = !!(doc.querySelector('time[datetime]') || doc.querySelector('[itemprop="datePublished"]') || doc.querySelector('meta[property="article:published_time"]'));
   const hasModifiedDate = !!(doc.querySelector('[itemprop="dateModified"]') || doc.querySelector('meta[property="article:modified_time"]'));
   const hasCopyright = bodyText.includes('©') || bodyText.includes('copyright');
@@ -1890,6 +1933,29 @@ function collectIssues(data: any): AuditIssue[] {
   if (mobile && !mobile.hasMediaQueries && !mobile.hasFlexbox && !mobile.hasGrid) issues.push({ id: 'no-responsive', severity: 'high', category: 'Mobile', issue: 'No responsive design detected', issueGe: 'No responsive design detected', location: 'CSS', fix: 'Add media queries or use flexbox/grid', fixGe: 'Add media queries or use flexbox/grid', details: `${SEVERITY_PHRASES.high} Responsive design is essential for mobile devices. Use @media queries, flexbox, or CSS grid.` });
 
   if (mobile && mobile.hasUserScalable) issues.push({ id: 'no-zoom', severity: 'medium', category: 'Accessibility', issue: 'Zooming is disabled (user-scalable=no)', issueGe: 'Zooming is disabled (user-scalable=no)', location: '<meta name="viewport" content="...user-scalable=no...">', fix: 'Remove user-scalable=no from viewport', fixGe: 'Remove user-scalable=no from viewport', details: `${SEVERITY_PHRASES.medium} Disabling zoom hurts users with vision problems. WCAG requires zoom capability.` });
+
+  // URL Structure Issues
+  const { urlStructure } = data;
+  if (urlStructure && urlStructure.issues && urlStructure.issues.length > 0) {
+    // Check for URL length issues
+    if (urlStructure.length > 100) {
+      issues.push({ id: 'url-too-long', severity: 'high', category: 'SEO', issue: `URL too long (${urlStructure.length} characters)`, issueGe: `URL too long (${urlStructure.length} characters)`, location: urlStructure.url?.substring(0, 80) + '...', fix: 'Shorten URL to under 75 characters for best SEO', fixGe: 'Shorten URL to under 75 characters for best SEO', details: `${SEVERITY_PHRASES.high} Long URLs are harder to share, look less trustworthy, and may be truncated in search results. Google recommends short, descriptive URLs.` });
+    } else if (urlStructure.length > 75) {
+      issues.push({ id: 'url-suboptimal-length', severity: 'medium', category: 'SEO', issue: `URL length suboptimal (${urlStructure.length} characters)`, issueGe: `URL length suboptimal (${urlStructure.length} characters)`, location: urlStructure.url?.substring(0, 80), fix: 'Consider shortening URL to under 75 characters', fixGe: 'Consider shortening URL to under 75 characters', details: `${SEVERITY_PHRASES.medium} Shorter URLs are easier to read and share. Aim for concise, descriptive URLs.` });
+    }
+    if (urlStructure.hasUppercase) {
+      issues.push({ id: 'url-uppercase', severity: 'medium', category: 'SEO', issue: 'URL contains uppercase letters', issueGe: 'URL contains uppercase letters', location: urlStructure.url?.substring(0, 80), fix: 'Use lowercase letters only in URLs', fixGe: 'Use lowercase letters only in URLs', details: `${SEVERITY_PHRASES.medium} URLs are case-sensitive. Uppercase can cause duplicate content issues. Always use lowercase.` });
+    }
+    if (urlStructure.hasUnderscores) {
+      issues.push({ id: 'url-underscores', severity: 'low', category: 'SEO', issue: 'URL uses underscores instead of hyphens', issueGe: 'URL uses underscores instead of hyphens', location: urlStructure.url?.substring(0, 80), fix: 'Use hyphens (-) instead of underscores (_)', fixGe: 'Use hyphens (-) instead of underscores (_)', details: `${SEVERITY_PHRASES.low} Google treats hyphens as word separators but underscores as word joiners. Use hyphens for better SEO.` });
+    }
+    if (urlStructure.depth > 4) {
+      issues.push({ id: 'url-deep', severity: 'medium', category: 'SEO', issue: `URL too deep (${urlStructure.depth} levels)`, issueGe: `URL too deep (${urlStructure.depth} levels)`, location: urlStructure.url?.substring(0, 80), fix: 'Flatten site structure to max 3-4 levels', fixGe: 'Flatten site structure to max 3-4 levels', details: `${SEVERITY_PHRASES.medium} Deep URLs (more than 4 levels) indicate poor site structure and receive less link equity.` });
+    }
+    if (urlStructure.isDynamic) {
+      issues.push({ id: 'url-dynamic', severity: 'medium', category: 'SEO', issue: 'URL contains dynamic parameters', issueGe: 'URL contains dynamic parameters', location: urlStructure.url?.substring(0, 80), fix: 'Use clean, static URLs without session IDs or tracking params', fixGe: 'Use clean, static URLs without session IDs or tracking params', details: `${SEVERITY_PHRASES.medium} Dynamic URLs with session IDs, tracking params, or query strings are less SEO-friendly and may cause duplicate content.` });
+    }
+  }
 
   return issues;
 }
