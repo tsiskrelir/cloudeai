@@ -126,8 +126,8 @@ function detectLanguage(text: string): 'ka' | 'ru' | 'de' | 'en' | 'es' {
 
   // Count German-specific characters and common German words
   const germanUmlauts = (sample.match(/[äöüÄÖÜß]/g) || []).length;
-  // Expanded German word list including legal/administrative terms common in German websites
-  const germanWords = (sampleLower.match(/\b(und|der|die|das|ist|sind|haben|werden|nicht|auch|für|mit|auf|dem|des|ein|eine|einer|einem|einen|zu|von|bei|nach|über|vor|durch|unter|gegen|ohne|seit|während|wegen|zur|zum|im|am|vom|beim|ans|ins|aufs|fürs|ums|wird|wurde|wurden|kann|können|muss|müssen|soll|sollte|darf|wenn|dass|weil|oder|aber|doch|noch|schon|nur|sehr|mehr|viel|alle|dieser|diese|dieses|welche|welcher|jetzt|heute|hier|dort|immer|wieder|sowie|jedoch|damit|dabei|dadurch|dafür|dagegen|daher|darum|schneller|neuer|berlin|köln|münchen|hamburg|frankfurt|verpflichtet|rechtsanwalt|rechtsanwälte|anwalt|anwälte|kanzlei|gericht|urteil|bescheid|antrag|verfahren|humanitäre|aufnahme|visum|visa|recht|rechte|gesetz|paragraph|beratung|vertretung|mandant|mandanten|termin|termine|leistungen|impressum|datenschutz|agb|kontakt|startseite|willkommen)\b/g) || []).length;
+  // Expanded German word list including common words, legal/administrative terms
+  const germanWords = (sampleLower.match(/\b(und|der|die|das|ist|sind|haben|werden|nicht|auch|für|mit|auf|dem|des|ein|eine|einer|einem|einen|zu|von|bei|nach|über|vor|durch|unter|gegen|ohne|seit|während|wegen|zur|zum|im|am|vom|beim|ans|ins|aufs|fürs|ums|wird|wurde|wurden|kann|können|muss|müssen|soll|sollte|darf|wenn|dass|weil|oder|aber|doch|noch|schon|nur|sehr|mehr|viel|alle|dieser|diese|dieses|welche|welcher|jetzt|heute|hier|dort|immer|wieder|sowie|jedoch|damit|dabei|dadurch|dafür|dagegen|daher|darum|schneller|neuer|berlin|köln|münchen|hamburg|frankfurt|verpflichtet|rechtsanwalt|rechtsanwälte|anwalt|anwälte|kanzlei|gericht|urteil|bescheid|antrag|verfahren|humanitäre|aufnahme|visum|visa|recht|rechte|gesetz|paragraph|beratung|vertretung|mandant|mandanten|termin|termine|leistungen|impressum|datenschutz|agb|kontakt|startseite|willkommen|aus|dem|ausland|einstellen|pflege|pflegekräfte|arbeit|arbeiten|arbeitgeber|arbeitnehmer|stelle|stellen|bewerbung|bewerben|unternehmen|firma|firmen|mitarbeiter|angestellte|fachkräfte|fachkraft|mangel|personal|suchen|suche|finden|vermittlung|agentur|jetzt|sofort|direkt|schnell|einfach|kostenlos|gratis|erfahrung|erfahren|jahre|jahr|deutschland|deutsch|deutsche|deutschen|deutscher|wir|uns|unser|unsere|unserem|unseren|ihr|ihre|ihrem|ihren|sie|ihnen|mehr|weitere|anderen|andere|anderer|allem|aller|alles|machen|macht|gemacht|gibt|geben|gegeben|lassen|gelassen|sehen|gesehen|kommen|gekommen|gehen|gegangen|stehen|gestanden|nehmen|genommen|halten|gehalten|bringen|gebracht|wissen|gewusst|denken|gedacht|glauben|geglaubt|zeigen|gezeigt|führen|geführt|sprechen|gesprochen|bleiben|geblieben|liegen|gelegen|heißen|genannt|scheinen|geschienen|beginnen|begonnen|leben|gelebt|fahren|gefahren|meinen|gemeint|fragen|gefragt|kennen|gekannt|gelten|gegolten|stellen|gestellt|spielen|gespielt|arbeiten|gearbeitet|brauchen|gebraucht|folgen|gefolgt|lernen|gelernt|bestehen|bestanden|verstehen|verstanden|setzen|gesetzt|bekommen|erhalten|erreichen|erreicht|tragen|getragen|schaffen|geschaffen|lesen|gelesen|verlieren|verloren|darstellen|dargestellt|erkennen|erkannt|entwickeln|entwickelt|ziehen|gezogen|scheinen|erschienen|fallen|gefallen|gehören|bilden|gebildet|entstehen|entstanden|erhalten|entsprechen|entsprochen|erfolgen|erfolgt|dienen|gedient|erscheinen|genannt|treffen|getroffen|wirken|gewirkt|achten|geachtet|aufnehmen|aufgenommen|betreffen|betroffen|schreiben|geschrieben|bieten|geboten|heraus|dabei|dazu|davon|daran|darauf|darin|damit|danach|daneben|dafür|dagegen|darum|daher|darüber|darunter|dadurch|dahinter|dessen|deren|diesem|dieser|diesen|diese|dieses|jener|jene|jenen|jenem|jenes|welcher|welche|welches|welchen|welchem|mancher|manche|manches|manchen|manchem|solcher|solche|solches|solchen|solchem|einiger|einige|einiges|einigen|einigem)\b/g) || []).length;
 
   // Detect German compound words (long words 8+ chars with German patterns)
   const allWords = sampleLower.match(/\b[a-zäöüß]+\b/g) || [];
@@ -449,17 +449,26 @@ function analyzeTechnical(doc: Document, sourceUrl: string, htmlLower: string, o
 // INTERNATIONAL (HREFLANG)
 // ============================================
 
-// Normalize URL for comparison: lowercase, remove trailing slash, normalize percent-encoding
+/// Normalize URL for comparison: lowercase, remove trailing slash, normalize percent-encoding, www
 function normalizeUrlForComparison(url: string | null | undefined): string {
   if (!url) return '';
   try {
-    // Decode and re-encode to normalize percent-encoding (e.g., %c2 vs %C2)
-    const decoded = decodeURIComponent(url);
+    const parsed = new URL(url);
+    // Normalize www/non-www - remove www for comparison
+    const hostname = parsed.hostname.replace(/^www\./, '');
+    // Normalize path - decode percent-encoding and remove trailing slash
+    const pathname = decodeURIComponent(parsed.pathname).replace(/\/$/, '') || '/';
     // Re-encode but keep it lowercase for comparison
-    return encodeURI(decoded).toLowerCase().replace(/\/$/, '');
+    return `${parsed.protocol}//${hostname}${pathname}`.toLowerCase();
   } catch {
-    // If decoding fails, just lowercase and remove trailing slash
-    return url.toLowerCase().replace(/\/$/, '');
+    try {
+      // If URL parsing fails, try simple decoding
+      const decoded = decodeURIComponent(url);
+      return encodeURI(decoded).toLowerCase().replace(/\/$/, '').replace(/^(https?:\/\/)www\./, '$1');
+    } catch {
+      // If decoding fails, just lowercase and remove trailing slash
+      return url.toLowerCase().replace(/\/$/, '').replace(/^(https?:\/\/)www\./, '$1');
+    }
   }
 }
 
@@ -477,16 +486,29 @@ function analyzeInternational(doc: Document, sourceUrl: string, canonicalHref: s
     langMatchesHreflang = hreflangs.some((h) => h.hreflang?.toLowerCase().split('-')[0] === langCode || h.hreflang === 'x-default');
   }
 
-  // NEW: Check if detected content language matches the self-referencing hreflang
+  // Check if content language matches the self-referencing hreflang
+  // Trust HTML lang attribute if it matches hreflang - don't rely solely on content detection
   let contentMatchesHreflang = true;
   let selfHreflangLang: string | null = null;
-  if (detectedContentLang && hreflangs.length > 0) {
+  if (hreflangs.length > 0) {
     // Find the hreflang that points to this page (self-reference)
     const selfHreflang = hreflangs.find((h) => normalizeUrlForComparison(h.href) === sourceUrlNormalized);
     if (selfHreflang && selfHreflang.hreflang && selfHreflang.hreflang !== 'x-default') {
       selfHreflangLang = selfHreflang.hreflang.toLowerCase().split('-')[0];
-      // Check if detected content language matches the hreflang value
-      contentMatchesHreflang = selfHreflangLang === detectedContentLang;
+
+      // If HTML lang attribute matches hreflang, consider it valid (trust the declaration)
+      if (htmlLang) {
+        const htmlLangCode = htmlLang.toLowerCase().split('-')[0];
+        if (htmlLangCode === selfHreflangLang) {
+          contentMatchesHreflang = true; // HTML declaration matches hreflang - valid
+        } else if (detectedContentLang) {
+          // HTML lang doesn't match hreflang - check content detection as backup
+          contentMatchesHreflang = selfHreflangLang === detectedContentLang;
+        }
+      } else if (detectedContentLang) {
+        // No HTML lang declared - use content detection
+        contentMatchesHreflang = selfHreflangLang === detectedContentLang;
+      }
     }
   }
 
