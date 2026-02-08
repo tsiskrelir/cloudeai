@@ -301,7 +301,7 @@ function calculateReadability(text: string): ReadabilityData {
   if (totalWords < 10) {
     return {
       fleschScore: 0,
-      fleschGrade: 'არასაკმარისი კონტენტი / Insufficient content',
+      fleschGrade: 'Insufficient content',
       avgSentenceLength: 0,
       avgSyllablesPerWord: 0,
       complexWordPercentage: 0
@@ -350,13 +350,13 @@ function calculateReadability(text: string): ReadabilityData {
   fleschScore = Math.max(0, Math.min(100, fleschScore));
 
   let fleschGrade: string;
-  if (fleschScore >= 90) fleschGrade = 'ძალიან მარტივი (5 კლასი)';
-  else if (fleschScore >= 80) fleschGrade = 'მარტივი (6 კლასი)';
-  else if (fleschScore >= 70) fleschGrade = 'საკმაოდ მარტივი (7 კლასი)';
-  else if (fleschScore >= 60) fleschGrade = 'სტანდარტული (8-9 კლასი)';
-  else if (fleschScore >= 50) fleschGrade = 'საკმაოდ რთული (10-12 კლასი)';
-  else if (fleschScore >= 30) fleschGrade = 'რთული (კოლეჯი)';
-  else fleschGrade = 'ძალიან რთული (უნივერსიტეტი)';
+  if (fleschScore >= 90) fleschGrade = 'Very Easy (5th grade)';
+  else if (fleschScore >= 80) fleschGrade = 'Easy (6th grade)';
+  else if (fleschScore >= 70) fleschGrade = 'Fairly Easy (7th grade)';
+  else if (fleschScore >= 60) fleschGrade = 'Standard (8th-9th grade)';
+  else if (fleschScore >= 50) fleschGrade = 'Fairly Difficult (10th-12th grade)';
+  else if (fleschScore >= 30) fleschGrade = 'Difficult (College)';
+  else fleschGrade = 'Very Difficult (University)';
 
   return {
     fleschScore: Math.round(fleschScore * 10) / 10,
@@ -947,9 +947,9 @@ function analyzeImages(doc: Document) {
 
     // Get context (parent tag or nearby text)
     const parent = img.parentElement;
-    const context = parent?.tagName === 'A' ? `ბმულში: ${(parent.getAttribute('href') || '').substring(0, 30)}` :
-                    parent?.tagName === 'FIGURE' ? 'figure ელემენტში' :
-                    parent?.className ? `კლასი: ${parent.className.substring(0, 20)}` : '';
+    const context = parent?.tagName === 'A' ? `in link: ${(parent.getAttribute('href') || '').substring(0, 30)}` :
+                    parent?.tagName === 'FIGURE' ? 'in figure element' :
+                    parent?.className ? `class: ${parent.className.substring(0, 20)}` : '';
 
     // Check for empty, invalid, or placeholder sources
     if (!src || src === '#' || src === 'undefined' || src === 'null' ||
@@ -1547,11 +1547,35 @@ function analyzeMobile(doc: Document, html: string, sourceUrl: string): MobileDa
   const fixedWidthMatches = html.match(/width\s*:\s*(\d+)px/g) || [];
   let fixedWidthElements = 0;
   let horizontalScrollRisk = false;
+  const fixedWidthList: { width: string; context: string }[] = [];
 
+  // Also check for style attributes on elements
+  const elementsWithStyle = doc.querySelectorAll('[style*="width"]');
+  elementsWithStyle.forEach((el) => {
+    const style = el.getAttribute('style') || '';
+    const widthMatch = style.match(/width\s*:\s*(\d+)px/);
+    if (widthMatch) {
+      const width = parseInt(widthMatch[1]);
+      if (width > 320) {
+        fixedWidthElements++;
+        if (width > 500) horizontalScrollRisk = true;
+        if (fixedWidthList.length < 10) {
+          const tagName = el.tagName.toLowerCase();
+          const className = el.className?.toString().substring(0, 50) || '';
+          const id = el.id || '';
+          fixedWidthList.push({
+            width: `${width}px`,
+            context: `<${tagName}${id ? ` id="${id}"` : ''}${className ? ` class="${className}"` : ''}>`
+          });
+        }
+      }
+    }
+  });
+
+  // Also count inline style widths
   fixedWidthMatches.forEach((match) => {
     const width = parseInt(match.match(/(\d+)/)?.[1] || '0');
     if (width > 320) {
-      fixedWidthElements++;
       if (width > 500) horizontalScrollRisk = true;
     }
   });
@@ -1559,6 +1583,10 @@ function analyzeMobile(doc: Document, html: string, sourceUrl: string): MobileDa
   if (horizontalScrollRisk) {
     issues.push('Fixed-width elements >500px cause horizontal scrolling on mobile');
     score -= 15;
+  }
+
+  if (fixedWidthElements > 0 && !horizontalScrollRisk) {
+    issues.push(`${fixedWidthElements} element(s) with fixed width >320px may cause issues on small screens`);
   }
 
   // Responsive images
@@ -1598,6 +1626,7 @@ function analyzeMobile(doc: Document, html: string, sourceUrl: string): MobileDa
     hasGrid,
     horizontalScrollRisk,
     fixedWidthElements,
+    fixedWidthList,
     hasThemeColor,
     hasAppleMobileWebAppCapable,
     hasAppleTouchIcon,
@@ -2312,16 +2341,16 @@ function collectPassed(data: any): string[] {
   const passed: string[] = [];
   const { technical, international, content, links, images, schema, social, accessibility, dom, performance, security, trustSignals, mobile } = data;
 
-  if (technical.title.isOptimal) passed.push('სათაური ოპტიმალურია ✓');
-  if (technical.metaDesc.isOptimal) passed.push('მეტა აღწერა ოპტიმალურია ✓');
-  if (content.headings.h1.length === 1) passed.push('ერთი H1 ✓');
-  if (content.wordCount >= 300) passed.push(`კონტენტი (${content.wordCount} სიტყვა) ✓`);
+  if (technical.title.isOptimal) passed.push('Title is optimal ✓');
+  if (technical.metaDesc.isOptimal) passed.push('Meta description is optimal ✓');
+  if (content.headings.h1.length === 1) passed.push('Single H1 ✓');
+  if (content.wordCount >= 300) passed.push(`Content (${content.wordCount} words) ✓`);
   if (content.readability.fleschScore >= 60) passed.push(`Flesch: ${content.readability.fleschScore} ✓`);
-  if (images.withoutAlt === 0 && images.total > 0) passed.push('ყველა სურათს აქვს alt ✓');
-  if (images.withoutDimensions === 0 && images.total > 0) passed.push('სურათებს აქვთ ზომები ✓');
-  if (links.broken === 0) passed.push('გატეხილი ბმულები არ არის ✓');
+  if (images.withoutAlt === 0 && images.total > 0) passed.push('All images have alt ✓');
+  if (images.withoutDimensions === 0 && images.total > 0) passed.push('Images have dimensions ✓');
+  if (links.broken === 0) passed.push('No broken links ✓');
   if (schema.count > 0 && schema.invalid === 0) passed.push(`Schema.org (${schema.types.join(', ')}) ✓`);
-  if (social.isComplete) passed.push('Open Graph სრულია ✓');
+  if (social.isComplete) passed.push('Open Graph complete ✓');
   if (social.twitter.card) passed.push('Twitter Card ✓');
   if (accessibility.hasLangAttribute) passed.push(`lang: ${technical.language} ✓`);
   if (technical.canonical.href && technical.canonical.count === 1) passed.push('Canonical ✓');
@@ -2338,8 +2367,8 @@ function collectPassed(data: any): string[] {
   if (accessibility.hasSkipLink) passed.push('Skip link ✓');
   if (accessibility.hasMainLandmark) passed.push('Main landmark ✓');
   if (accessibility.aria.ariaLabels > 0) passed.push(`ARIA labels (${accessibility.aria.ariaLabels}) ✓`);
-  if (dom.duplicateIds.length === 0) passed.push('უნიკალური ID-ები ✓');
-  if (dom.deprecatedElements.length === 0) passed.push('მოძველებული ელემენტები არ არის ✓');
+  if (dom.duplicateIds.length === 0) passed.push('Unique IDs ✓');
+  if (dom.deprecatedElements.length === 0) passed.push('No deprecated elements ✓');
   if (trustSignals.hasAboutPage) passed.push('About page ✓');
   if (trustSignals.hasContactPage) passed.push('Contact page ✓');
   if (trustSignals.hasPrivacyPage) passed.push('Privacy page ✓');
@@ -2347,14 +2376,14 @@ function collectPassed(data: any): string[] {
   if (trustSignals.socialLinksCount > 0) passed.push(`Social (${trustSignals.socialPlatforms.join(', ')}) ✓`);
 
   // Mobile
-  if (mobile && mobile.score >= 80) passed.push(`მობილური მეგობრულობა (${mobile.score}/100) ✓`);
-  if (mobile && mobile.hasViewport && mobile.hasWidthDeviceWidth) passed.push('Viewport კონფიგურაცია ✓');
+  if (mobile && mobile.score >= 80) passed.push(`Mobile friendliness (${mobile.score}/100) ✓`);
+  if (mobile && mobile.hasViewport && mobile.hasWidthDeviceWidth) passed.push('Viewport configuration ✓');
   if (mobile && mobile.hasMediaQueries) passed.push(`Media queries (${mobile.mediaQueryCount}) ✓`);
-  if (mobile && (mobile.hasFlexbox || mobile.hasGrid)) passed.push('რესპონსიული layout (flexbox/grid) ✓');
+  if (mobile && (mobile.hasFlexbox || mobile.hasGrid)) passed.push('Responsive layout (flexbox/grid) ✓');
   if (mobile && mobile.hasManifest) passed.push('Web App Manifest ✓');
-  if (mobile && mobile.responsiveImagesCount > 0) passed.push(`რესპონსიული სურათები (${mobile.responsiveImagesCount}) ✓`);
-  if (mobile && mobile.smallTapTargets === 0) passed.push('Tap targets ოპტიმალურია ✓');
-  if (mobile && !mobile.hasUserScalable) passed.push('მასშტაბირება ნებადართულია ✓');
+  if (mobile && mobile.responsiveImagesCount > 0) passed.push(`Responsive images (${mobile.responsiveImagesCount}) ✓`);
+  if (mobile && mobile.smallTapTargets === 0) passed.push('Tap targets optimal ✓');
+  if (mobile && !mobile.hasUserScalable) passed.push('Zooming enabled ✓');
 
   return passed;
 }
