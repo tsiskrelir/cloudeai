@@ -81,10 +81,6 @@ export async function requestUrl(
         ) {
           res.resume();
           const nextUrl = new URL(res.headers.location, url).href;
-          done(
-            undefined,
-            undefined as any
-          );
           requestUrl(
             { ...options, url: nextUrl },
             redirectCount + 1

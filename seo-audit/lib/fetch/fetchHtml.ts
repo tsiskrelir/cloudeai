@@ -197,6 +197,8 @@ export async function checkUrlInSitemap(
     new URL('/sitemap_index.xml', baseUrl).href,
     new URL('/sitemap/', baseUrl).href,
   ];
+  let foundAny = false;
+  let lastSitemapUrl: string | undefined;
 
   for (const sitemapUrl of sitemapUrls) {
     try {
@@ -210,6 +212,9 @@ export async function checkUrlInSitemap(
       if (!res.body.includes('<urlset') && !res.body.includes('<sitemapindex')) {
         continue;
       }
+
+      foundAny = true;
+      lastSitemapUrl = sitemapUrl;
 
       const normalizedTarget = targetUrl.toLowerCase().replace(/\/$/, '');
       const inSitemap = res.body.toLowerCase().includes(normalizedTarget);
@@ -235,14 +240,12 @@ export async function checkUrlInSitemap(
           }
         }
       }
-
-      return { found: true, inSitemap: false, sitemapUrl };
     } catch {
       continue;
     }
   }
 
-  return { found: false, inSitemap: false };
+  return { found: foundAny, inSitemap: false, sitemapUrl: lastSitemapUrl };
 }
 
 // --------------------
