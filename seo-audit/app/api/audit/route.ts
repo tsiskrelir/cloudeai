@@ -464,7 +464,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Build site tree from sitemap
-        const siteTree = await buildSiteTree(base, finalUrl, 100);
+        const siteTree = await buildSiteTree(base, finalUrl, 500);
         result.technical.siteTree = siteTree;
 
         // Add site tree issues
