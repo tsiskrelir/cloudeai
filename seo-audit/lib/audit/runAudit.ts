@@ -179,7 +179,6 @@ function detectLanguage(text: string, htmlLang?: string | null): 'ka' | 'ru' | '
   const latinChars = (sample.match(/[a-zA-Z]/g) || []).length;
 
   const total = georgianChars + cyrillicChars + latinChars;
-  if (total < 50) return 'en'; // Default to English if not enough text
 
   // Georgian takes priority if significant presence
   if (georgianChars > total * 0.3) return 'ka';
@@ -198,6 +197,8 @@ function detectLanguage(text: string, htmlLang?: string | null): 'ka' | 'ru' | '
 
   // Spanish detection: Spanish chars OR common Spanish words
   if (spanishChars > 3 || spanishWords > 8) return 'es';
+
+  if (total < 50) return 'en'; // Default to English if not enough text
 
   // If most Latin words are just international loanwords, don't assume English
   // Only return English if there are actual English-only words
@@ -978,6 +979,53 @@ function analyzeImages(doc: Document) {
   const withoutDimensionsList: { src: string; alt: string }[] = [];
   // Collect images with empty alt
   const emptyAltList: { src: string; context: string }[] = [];
+  const imageList: {
+    src: string;
+    alt: string;
+    width: string | null;
+    height: string | null;
+    id: string | null;
+    className: string | null;
+    format: string | null;
+    hasAlt: boolean;
+    hasDimensions: boolean;
+  }[] = [];
+  const pngList: {
+    src: string;
+    alt: string;
+    width: string | null;
+    height: string | null;
+    id: string | null;
+    className: string | null;
+    format: string | null;
+    hasAlt: boolean;
+    hasDimensions: boolean;
+  }[] = [];
+
+  const getFormatFromSrc = (src: string): string | null => {
+    if (!src) return null;
+    const cleanSrc = src.split('?')[0]?.split('#')[0] || '';
+    const match = cleanSrc.match(/\.([a-z0-9]+)$/i);
+    return match ? match[1].toLowerCase() : null;
+  };
+
+  const buildImageSnippet = (img: Element): string => {
+    const src = img.getAttribute('src');
+    const alt = img.getAttribute('alt');
+    const width = img.getAttribute('width');
+    const height = img.getAttribute('height');
+    const id = img.getAttribute('id');
+    const className = img.getAttribute('class');
+    const attrs = [
+      src ? ` src="${src.substring(0, 60)}"` : '',
+      alt !== null ? ` alt="${alt.substring(0, 40)}"` : '',
+      width ? ` width="${width}"` : '',
+      height ? ` height="${height}"` : '',
+      id ? ` id="${id}"` : '',
+      className ? ` class="${className.substring(0, 40)}"` : '',
+    ].join('');
+    return `<img${attrs}>`;
+  };
 
   images.forEach((img) => {
     const src = img.getAttribute('src') || '';
@@ -985,6 +1033,38 @@ function analyzeImages(doc: Document) {
     const hasAlt = img.hasAttribute('alt');
     const hasWidth = img.hasAttribute('width');
     const hasHeight = img.hasAttribute('height');
+    const id = img.getAttribute('id');
+    const className = img.getAttribute('class');
+    const width = img.getAttribute('width');
+    const height = img.getAttribute('height');
+    const format = getFormatFromSrc(src);
+    const hasDimensions = hasWidth && hasHeight;
+
+    imageList.push({
+      src,
+      alt: alt || '',
+      width,
+      height,
+      id,
+      className,
+      format,
+      hasAlt,
+      hasDimensions,
+    });
+
+    if (format === 'png') {
+      pngList.push({
+        src,
+        alt: alt || '',
+        width,
+        height,
+        id,
+        className,
+        format,
+        hasAlt,
+        hasDimensions,
+      });
+    }
 
     // Get context (parent tag or nearby text)
     const parent = img.parentElement;
@@ -1005,19 +1085,19 @@ function analyzeImages(doc: Document) {
     // Track images without alt attribute
     if (!hasAlt && withoutAltList.length < 10) {
       const shortSrc = src.length > 60 ? '...' + src.substring(src.length - 50) : src;
-      withoutAltList.push({ src: shortSrc, context });
+      withoutAltList.push({ src: shortSrc, context, elementId: id, snippet: buildImageSnippet(img) });
     }
 
     // Track images with empty alt (that aren't decorative)
     if (hasAlt && alt === '' && emptyAltList.length < 10) {
       const shortSrc = src.length > 60 ? '...' + src.substring(src.length - 50) : src;
-      emptyAltList.push({ src: shortSrc, context });
+      emptyAltList.push({ src: shortSrc, context, elementId: id, snippet: buildImageSnippet(img) });
     }
 
     // Track images without dimensions
     if ((!hasWidth || !hasHeight) && withoutDimensionsList.length < 10) {
       const shortSrc = src.length > 60 ? '...' + src.substring(src.length - 50) : src;
-      withoutDimensionsList.push({ src: shortSrc, alt: (alt || '(no alt)').substring(0, 30) });
+      withoutDimensionsList.push({ src: shortSrc, alt: (alt || '(no alt)').substring(0, 30), elementId: id, snippet: buildImageSnippet(img) });
     }
   });
 
@@ -1032,6 +1112,8 @@ function analyzeImages(doc: Document) {
     brokenCount: brokenImages.length,
     brokenList: brokenImages.slice(0, 10),
     imageUrls: imageUrls.slice(0, 15), // For size checking
+    imageList,
+    pngList,
     withoutAltList,
     withoutDimensionsList,
     emptyAltList
@@ -1588,9 +1670,26 @@ function analyzeMobile(doc: Document, html: string, sourceUrl: string): MobileDa
   const fixedWidthMatches = html.match(/width\s*:\s*(\d+)px/g) || [];
   let fixedWidthElements = 0;
   let horizontalScrollRisk = false;
-  const fixedWidthList: { width: string; context: string }[] = [];
+  const fixedWidthList: { width: string; context: string; elementId?: string | null; snippet?: string }[] = [];
   const warningWidthThreshold = 320;
   const mobileWidthThreshold = 360;
+
+  const buildFixedWidthSnippet = (el: Element, widthValue: string, widthSource: 'style' | 'attr'): string => {
+    const tagName = el.tagName.toLowerCase();
+    const id = el.getAttribute('id');
+    const className = el.getAttribute('class');
+    const widthAttr = widthSource === 'attr' ? ` width="${widthValue}"` : '';
+    const styleAttr = widthSource === 'style' ? ` style="width: ${widthValue};"` : '';
+    const srcAttr = el.getAttribute('src');
+    const baseAttrs = [
+      id ? ` id="${id}"` : '',
+      className ? ` class="${className.substring(0, 60)}"` : '',
+      widthAttr,
+      styleAttr,
+      srcAttr ? ` src="${srcAttr.substring(0, 60)}"` : '',
+    ].join('');
+    return `<${tagName}${baseAttrs}>`;
+  };
 
   // Also check for style attributes on elements
   const elementsWithStyle = doc.querySelectorAll('[style*="width"]');
@@ -1608,7 +1707,9 @@ function analyzeMobile(doc: Document, html: string, sourceUrl: string): MobileDa
           const id = el.id || '';
           fixedWidthList.push({
             width: `${width}px`,
-            context: `<${tagName}${id ? ` id="${id}"` : ''}${className ? ` class="${className}"` : ''}>`
+            context: `<${tagName}${id ? ` id="${id}"` : ''}${className ? ` class="${className}"` : ''}>`,
+            elementId: id || null,
+            snippet: buildFixedWidthSnippet(el, `${width}px`, 'style')
           });
         }
       }
@@ -1629,7 +1730,9 @@ function analyzeMobile(doc: Document, html: string, sourceUrl: string): MobileDa
         const id = el.id || '';
         fixedWidthList.push({
           width: `${width}px`,
-          context: `<${tagName}${id ? ` id="${id}"` : ''}${className ? ` class="${className}"` : ''} width="${widthAttr}">`
+          context: `<${tagName}${id ? ` id="${id}"` : ''}${className ? ` class="${className}"` : ''} width="${widthAttr}">`,
+          elementId: id || null,
+          snippet: buildFixedWidthSnippet(el, `${widthAttr}`, 'attr')
         });
       }
     }
@@ -1981,11 +2084,15 @@ function collectIssues(data: any): AuditIssue[] {
 
   // Images - Show full HTML tags
   if (images.withoutAlt > 0) {
-    const imgExamples = images.withoutAltList?.slice(0, 3).map((img: any) => `<img src="${img.src?.substring(0, 50)}${img.src?.length > 50 ? '...' : ''}">`).join(' ') || '<img>';
+    const imgExamples = images.withoutAltList?.slice(0, 5)
+      .map((img: any) => img.snippet || `<img src="${img.src?.substring(0, 50)}${img.src?.length > 50 ? '...' : ''}">`)
+      .join(' ') || '<img>';
     issues.push({ id: 'img-no-alt', severity: images.withoutAlt > 5 ? 'high' : 'medium', category: 'Accessibility', issue: `${images.withoutAlt} image(s) missing alt text`, issueGe: `${images.withoutAlt} image(s) missing alt text`, location: imgExamples, fix: 'Add descriptive alt text to all images', fixGe: 'Add descriptive alt text to all images', details: `${images.withoutAlt > 5 ? SEVERITY_PHRASES.high : SEVERITY_PHRASES.medium} ${images.withoutAlt} images missing alt attribute. Alt text is required for accessibility and image SEO.` });
   }
   if (images.withoutDimensions > 0) {
-    const imgExamples = images.withoutDimensionsList?.slice(0, 2).map((img: any) => `<img src="${img.src?.substring(0, 40)}..." alt="${img.alt?.substring(0, 20) || ''}">`).join(' ') || '<img>';
+    const imgExamples = images.withoutDimensionsList?.slice(0, 4)
+      .map((img: any) => img.snippet || `<img src="${img.src?.substring(0, 40)}..." alt="${img.alt?.substring(0, 20) || ''}">`)
+      .join(' ') || '<img>';
     issues.push({ id: 'img-no-dim', severity: 'medium', category: 'Performance', issue: `${images.withoutDimensions} image(s) without dimensions`, issueGe: `${images.withoutDimensions} image(s) without dimensions`, location: imgExamples, fix: 'Add width and height attributes', fixGe: 'Add width and height attributes', details: `${SEVERITY_PHRASES.medium} Specifying image dimensions prevents CLS (Cumulative Layout Shift) and improves Core Web Vitals.` });
   }
   if (images.brokenCount > 0) {
@@ -2049,9 +2156,9 @@ function collectIssues(data: any): AuditIssue[] {
 
   if (mobile && mobile.horizontalScrollRisk) {
     const fixedWidthExamples = mobile.fixedWidthList && mobile.fixedWidthList.length > 0
-      ? ` Examples: ${mobile.fixedWidthList.map((item) => `${item.context} (${item.width})`).join('; ')}`
+      ? `\nProblematic elements:\n${mobile.fixedWidthList.map((item) => `• ${item.snippet || item.context} (${item.width})${item.elementId ? ` [id="${item.elementId}"]` : ' [id missing]'}`).join('\n')}`
       : '';
-    issues.push({ id: 'horizontal-scroll', severity: 'high', category: 'Mobile', issue: 'Page may require horizontal scrolling on mobile', issueGe: 'Page may require horizontal scrolling on mobile', location: 'Fixed-width elements', fix: 'Use max-width: 100% and responsive units', fixGe: 'Use max-width: 100% and responsive units', details: `${SEVERITY_PHRASES.high} Fixed-width elements cause horizontal scrolling. Use % or vw units.${fixedWidthExamples}` });
+    issues.push({ id: 'horizontal-scroll', severity: 'high', category: 'Mobile', issue: 'Horizontal scrolling detected on mobile', issueGe: 'Horizontal scrolling detected on mobile', location: 'Fixed-width elements', fix: 'Use max-width: 100% and responsive units', fixGe: 'Use max-width: 100% and responsive units', details: `${SEVERITY_PHRASES.high} Fixed-width elements cause horizontal scrolling. Use % or vw units.${fixedWidthExamples}` });
   }
 
   if (mobile && !mobile.hasMediaQueries && !mobile.hasFlexbox && !mobile.hasGrid) issues.push({ id: 'no-responsive', severity: 'high', category: 'Mobile', issue: 'No responsive design detected', issueGe: 'No responsive design detected', location: 'CSS', fix: 'Add media queries or use flexbox/grid', fixGe: 'Add media queries or use flexbox/grid', details: `${SEVERITY_PHRASES.high} Responsive design is essential for mobile devices. Use @media queries, flexbox, or CSS grid.` });

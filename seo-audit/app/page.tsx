@@ -84,7 +84,51 @@ interface AuditResult {
   international: { hreflangs: HreflangTag[]; hasXDefault: boolean; hasSelfReference: boolean; canonicalInHreflang: boolean; langMatchesHreflang: boolean; issues: string[]; };
   content: { headings: { h1: string[]; h2: string[]; h3: string[]; h4: string[]; h5: string[]; h6: string[] }; wordCount: number; characterCount: number; sentenceCount: number; paragraphCount: number; readingTime: number; titleH1Duplicate: boolean; duplicateParagraphs: number; aiScore: number; aiPhrases: string[]; readability: ReadabilityData; keywordDensity: KeywordDensity[]; };
   links: { total: number; internal: number; external: number; broken: number; brokenList: { href: string; text: string; reason?: string; htmlTag?: string }[]; brokenExternalLinks?: number; brokenExternalList?: { href: string; text: string; status: number; error?: string }[]; brokenInternalLinks?: number; brokenInternalList?: { href: string; text: string; status: number; error?: string }[]; genericAnchors: number; genericAnchorsList: { text: string; href: string }[]; nofollow: number; sponsored: number; ugc: number; unsafeExternalCount: number; hasFooterLinks: boolean; hasNavLinks: boolean; internalUrls?: { href: string; text: string }[]; externalUrls?: { href: string; text: string }[]; paginationUrls?: { href: string; text: string }[]; };
-  images: { total: number; withoutAlt: number; withEmptyAlt: number; withoutDimensions: number; lazyLoaded: number; lazyAboveFold: number; clickableWithoutAlt: number; decorativeCount: number; largeImages: number; modernFormats: number; srcsetCount: number; imageSizeAnalysis?: { checked: number; largeCount: number; oldFormatCount: number; largeList: { src: string; size: string; type: string | null }[]; oldFormatList: { src: string; type: string | null }[] } };
+  images: {
+    total: number;
+    withoutAlt: number;
+    withEmptyAlt: number;
+    withoutDimensions: number;
+    lazyLoaded: number;
+    lazyAboveFold: number;
+    clickableWithoutAlt: number;
+    decorativeCount: number;
+    largeImages: number;
+    modernFormats: number;
+    srcsetCount: number;
+    imageSizeAnalysis?: {
+      checked: number;
+      largeCount: number;
+      oldFormatCount: number;
+      largeList: { src: string; size: string; type: string | null }[];
+      oldFormatList: { src: string; type: string | null }[];
+    };
+    imageList?: {
+      src: string;
+      alt: string;
+      width: string | null;
+      height: string | null;
+      id: string | null;
+      className: string | null;
+      format: string | null;
+      hasAlt: boolean;
+      hasDimensions: boolean;
+    }[];
+    pngList?: {
+      src: string;
+      alt: string;
+      width: string | null;
+      height: string | null;
+      id: string | null;
+      className: string | null;
+      format: string | null;
+      hasAlt: boolean;
+      hasDimensions: boolean;
+    }[];
+    withoutAltList?: { src: string; context: string; elementId?: string | null; snippet?: string }[];
+    withoutDimensionsList?: { src: string; alt: string; elementId?: string | null; snippet?: string }[];
+    emptyAltList?: { src: string; context: string; elementId?: string | null; snippet?: string }[];
+  };
   schema: { count: number; types: string[]; valid: number; invalid: number; details: SchemaItem[]; missingContext: number; hasWebSiteSearch: boolean; hasBreadcrumb: boolean; hasOrganization: boolean; hasFAQ: boolean; hasHowTo: boolean; };
   social: { og: { title: string | null; description: string | null; image: string | null; url: string | null; type: string | null; siteName: string | null; locale: string | null }; twitter: { card: string | null; site: string | null; creator: string | null; title: string | null; description: string | null; image: string | null }; isComplete: boolean; hasArticleTags: boolean; };
   accessibility: { buttonsWithoutLabel: number; inputsWithoutLabel: number; linksWithoutText: number; iframesWithoutTitle: number; skippedHeadings: string[]; hasSkipLink: boolean; hasLangAttribute: boolean; clickableImagesWithoutAlt: number; positiveTabindex: number; hasMainLandmark: boolean; hasNavLandmark: boolean; hasFocusVisible: boolean; colorContrastIssues: number; contrastIssuesList?: { type: string; count: number; details: { element: string; foreground: string; background: string; ratio: number; wcagAA: boolean; wcagAAA: boolean; css?: string }[] }[]; aria: AriaData; tablesWithoutHeaders: number; autoplayMedia: number; };
@@ -93,7 +137,7 @@ interface AuditResult {
   security: { isHttps: boolean; mixedContentCount: number; mixedContentUrls: string[]; protocolRelativeCount: number; unsafeExternalLinks: number; hasCSP: boolean; hasXFrameOptions: boolean; hasXContentTypeOptions: boolean; hasReferrerPolicy: boolean; hasCORS: boolean; formWithoutAction: number; passwordFieldWithoutAutocomplete: number; };
   platform: { cms: string[]; frameworks: string[]; analytics: string[]; advertising: string[]; renderMethod: string; isCSR: boolean; isPWA: boolean; hasAMP: boolean; };
   trustSignals: { hasAboutPage: boolean; hasContactPage: boolean; hasPrivacyPage: boolean; hasTermsPage: boolean; hasCookiePolicy: boolean; hasAuthor: boolean; hasPublishDate: boolean; hasModifiedDate: boolean; hasCopyright: boolean; hasAddress: boolean; hasPhone: boolean; hasEmail: boolean; socialLinksCount: number; socialPlatforms: string[]; hasSSLBadge: boolean; hasPaymentBadges: boolean; hasReviews: boolean; hasCertifications: boolean; };
-  mobile?: { hasViewport: boolean; viewportContent: string | null; hasWidthDeviceWidth: boolean; hasInitialScale: boolean; hasUserScalable: boolean; smallTapTargets: number; tapTargetsList: { element: string; size: string }[]; smallTextElements: number; usesRelativeFontSizes: boolean; hasMediaQueries: boolean; mediaQueryCount: number; hasFlexbox: boolean; hasGrid: boolean; horizontalScrollRisk: boolean; fixedWidthElements: number; fixedWidthList?: { width: string; context: string }[]; hasThemeColor: boolean; hasAppleMobileWebAppCapable: boolean; hasAppleTouchIcon: boolean; hasManifest: boolean; responsiveImagesCount: number; totalImages: number; score: number; issues: string[] };
+  mobile?: { hasViewport: boolean; viewportContent: string | null; hasWidthDeviceWidth: boolean; hasInitialScale: boolean; hasUserScalable: boolean; smallTapTargets: number; tapTargetsList: { element: string; size: string }[]; smallTextElements: number; usesRelativeFontSizes: boolean; hasMediaQueries: boolean; mediaQueryCount: number; hasFlexbox: boolean; hasGrid: boolean; horizontalScrollRisk: boolean; fixedWidthElements: number; fixedWidthList?: { width: string; context: string; elementId?: string | null; snippet?: string }[]; hasThemeColor: boolean; hasAppleMobileWebAppCapable: boolean; hasAppleTouchIcon: boolean; hasManifest: boolean; responsiveImagesCount: number; totalImages: number; score: number; issues: string[] };
   externalResources: { cssFiles: { url: string; isThirdParty: boolean }[]; cssCount: number; jsFiles: { url: string; isThirdParty: boolean; async: boolean; defer: boolean; module: boolean }[]; jsCount: number; fontFiles: { url: string; format: string | null }[]; fontCount: number; googleFonts: string[]; thirdPartyDomains: string[]; thirdPartyCount: number; suggestedPreconnects: string[] };
   issues: AuditIssue[];
   passed: string[];
@@ -270,6 +314,11 @@ export default function SEOChecker() {
   const [totalUrls, setTotalUrls] = useState(0);
 
   const allSections = ['overview', 'issues', 'passed', 'sitemap', 'technical', 'content', 'security', 'international', 'links', 'images', 'schema', 'social', 'platform', 'accessibility', 'dom', 'performance', 'ai', 'trust', 'mobile', 'robots'];
+  const imageList = results?.images.imageList || [];
+  const imagesWithoutAlt = imageList.filter((img) => !img.hasAlt);
+  const imagesWithoutDimensions = imageList.filter((img) => !img.hasDimensions);
+  const pngImages = results?.images.pngList || [];
+  const largeImages = results?.images.imageSizeAnalysis?.largeList || [];
 
   const handleAnalyze = async () => {
     setError('');
@@ -1138,9 +1187,9 @@ export default function SEOChecker() {
                       <div className={`text-xl font-bold ${results.mobile.hasMediaQueries ? 'text-green-700' : 'text-yellow-700'}`}>{results.mobile.hasMediaQueries ? '✓' : '✗'}</div>
                       <div className="text-xs text-gray-600">Media Queries</div>
                     </div>
-                    <div className={`p-3 rounded-lg text-center ${!results.mobile.horizontalScrollRisk ? 'bg-green-50' : 'bg-red-50'}`}>
-                      <div className={`text-xl font-bold ${!results.mobile.horizontalScrollRisk ? 'text-green-700' : 'text-red-700'}`}>{!results.mobile.horizontalScrollRisk ? '✓' : '✗'}</div>
-                      <div className="text-xs text-gray-600">No Horizontal Scroll</div>
+                    <div className={`p-3 rounded-lg text-center ${results.mobile.horizontalScrollRisk ? 'bg-red-50' : 'bg-green-50'}`}>
+                      <div className={`text-xl font-bold ${results.mobile.horizontalScrollRisk ? 'text-red-700' : 'text-green-700'}`}>{results.mobile.horizontalScrollRisk ? '✗' : '✓'}</div>
+                      <div className="text-xs text-gray-600">{results.mobile.horizontalScrollRisk ? 'Horizontal Scroll Risk' : 'No Horizontal Scroll'}</div>
                     </div>
                   </div>
 
@@ -1512,6 +1561,89 @@ export default function SEOChecker() {
                   </div>
                 </div>
               )}
+
+              {imageList.length > 0 && (
+                <details className="mt-4">
+                  <summary className="cursor-pointer text-sm font-medium text-gray-700 hover:text-gray-900">Image inventory ({imageList.length})</summary>
+                  <div className="mt-2 max-h-72 overflow-auto border border-gray-200 rounded-lg">
+                    <table className="w-full text-xs">
+                      <thead className="bg-gray-50 text-gray-600 sticky top-0">
+                        <tr>
+                          <th className="text-left p-2">Source</th>
+                          <th className="text-left p-2">Alt</th>
+                          <th className="text-left p-2">Dimensions</th>
+                          <th className="text-left p-2">ID/Class</th>
+                          <th className="text-left p-2">Format</th>
+                          <th className="text-left p-2">Flags</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {imageList.map((img, i) => (
+                          <tr key={`${img.src}-${i}`} className="border-t border-gray-100">
+                            <td className="p-2 truncate max-w-[240px]" title={img.src}>{img.src || '(empty src)'}</td>
+                            <td className="p-2 truncate max-w-[160px]" title={img.alt}>{img.alt || '—'}</td>
+                            <td className="p-2">{img.width && img.height ? `${img.width}×${img.height}` : '—'}</td>
+                            <td className="p-2">
+                              <div className="truncate max-w-[160px]" title={`${img.id || ''} ${img.className || ''}`.trim()}>
+                                {img.id ? `#${img.id}` : '—'}{img.className ? ` .${img.className.split(' ').slice(0, 2).join('.')}` : ''}
+                              </div>
+                            </td>
+                            <td className="p-2">{img.format || '—'}</td>
+                            <td className="p-2">
+                              {!img.hasAlt && <span className="mr-2 text-red-600">no alt</span>}
+                              {!img.hasDimensions && <span className="mr-2 text-orange-600">no dims</span>}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </details>
+              )}
+
+              <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                {imagesWithoutAlt.length > 0 && (
+                  <details className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                    <summary className="cursor-pointer text-sm font-medium text-red-800">Images missing alt ({imagesWithoutAlt.length})</summary>
+                    <div className="mt-2 max-h-40 overflow-auto text-xs text-red-700 space-y-1">
+                      {imagesWithoutAlt.map((img, i) => (
+                        <div key={`${img.src}-alt-${i}`} className="truncate">• {img.src || '(empty src)'} {img.id ? `(id="${img.id}")` : '(id missing)'}</div>
+                      ))}
+                    </div>
+                  </details>
+                )}
+                {imagesWithoutDimensions.length > 0 && (
+                  <details className="p-3 bg-orange-50 border border-orange-200 rounded-lg">
+                    <summary className="cursor-pointer text-sm font-medium text-orange-800">Images without dimensions ({imagesWithoutDimensions.length})</summary>
+                    <div className="mt-2 max-h-40 overflow-auto text-xs text-orange-700 space-y-1">
+                      {imagesWithoutDimensions.map((img, i) => (
+                        <div key={`${img.src}-dim-${i}`} className="truncate">• {img.src || '(empty src)'} {img.id ? `(id="${img.id}")` : '(id missing)'}</div>
+                      ))}
+                    </div>
+                  </details>
+                )}
+                {pngImages.length > 0 && (
+                  <details className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                    <summary className="cursor-pointer text-sm font-medium text-yellow-800">PNG images ({pngImages.length})</summary>
+                    <div className="mt-2 max-h-40 overflow-auto text-xs text-yellow-700 space-y-1">
+                      {pngImages.map((img, i) => (
+                        <div key={`${img.src}-png-${i}`} className="truncate">• {img.src || '(empty src)'} {img.id ? `(id="${img.id}")` : '(id missing)'}</div>
+                      ))}
+                    </div>
+                  </details>
+                )}
+                {largeImages.length > 0 && (
+                  <details className="p-3 bg-purple-50 border border-purple-200 rounded-lg">
+                    <summary className="cursor-pointer text-sm font-medium text-purple-800">Large image files ({largeImages.length})</summary>
+                    <div className="mt-2 text-xs text-purple-700">Checked {results.images.imageSizeAnalysis?.checked || 0} image URLs.</div>
+                    <div className="mt-2 max-h-40 overflow-auto text-xs text-purple-700 space-y-1">
+                      {largeImages.map((img, i) => (
+                        <div key={`${img.src}-large-${i}`} className="truncate">• {img.src} ({img.size})</div>
+                      ))}
+                    </div>
+                  </details>
+                )}
+              </div>
             </Section>
 
             {/* Schema */}
