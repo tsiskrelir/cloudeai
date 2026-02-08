@@ -1,77 +1,90 @@
-# SEO აუდიტი - Next.js
+# SEO Audit - Next.js
 
-ვებგვერდის SEO ანალიზის ინსტრუმენტი 50+ შემოწმებით.
+A comprehensive SEO auditing tool for web pages with 50+ automated checks, built on Next.js.
 
-## ფუნქციები
+## Features
 
-- ✅ სათაური, მეტა აღწერა, H1-H6
-- ✅ სურათების alt ტექსტი
-- ✅ ბმულების ანალიზი (შიდა, გარე, გატეხილი)
-- ✅ Schema.org მარკაპი
+- ✅ Title, meta description, and H1–H6 validation
+- ✅ Image `alt` text and accessibility checks
+- ✅ Internal/external/broken link analysis
+- ✅ Schema.org validation
 - ✅ Open Graph & Twitter Cards
-- ✅ ხელმისაწვდომობა (Accessibility)
-- ✅ CMS და Framework-ების აღმოჩენა
-- ✅ JSON/CSV ექსპორტი
+- ✅ Accessibility checks (ARIA, landmarks, contrast)
+- ✅ CMS & framework detection
+- ✅ JSON/CSV export
+- ✅ Robots.txt, sitemap, and llms.txt checks
 
 ---
 
-## ინსტალაცია სერვერზე
-
-### 1. ფაილების ატვირთვა
+## Local Development
 
 ```bash
-# შექმენით საქაღალდე
-sudo mkdir -p /var/www/seo-audit
+npm install
+npm run dev
+```
 
-# ატვირთეთ ფაილები (scp, rsync, ან git)
+Open [http://localhost:3000](http://localhost:3000) to use the UI.
+
+---
+
+## Production Build
+
+```bash
+npm run build
+npm start
+```
+
+---
+
+## Server Installation (Example)
+
+### 1. Upload files
+
+```bash
+sudo mkdir -p /var/www/seo-audit
 scp -r ./* user@server:/var/www/seo-audit/
 ```
 
-### 2. დამოკიდებულებების ინსტალაცია
+### 2. Install dependencies
 
 ```bash
 cd /var/www/seo-audit
 npm install
 ```
 
-### 3. აწყობა (Build)
+### 3. Build
 
 ```bash
 npm run build
 ```
 
-### 4. PM2-ით გაშვება
+### 4. Run with PM2
 
 ```bash
-# PM2 ინსტალაცია (თუ არ არის)
 sudo npm install -g pm2
-
-# გაშვება
 pm2 start npm --name "seo-audit" -- start
-
-# ავტო-გაშვება სერვერის რესტარტისას
 pm2 save
 pm2 startup
 ```
 
-### 5. Apache კონფიგურაცია
+### 5. Apache proxy example
 
-შექმენით `/etc/apache2/sites-available/seo-audit.conf`:
+Create `/etc/apache2/sites-available/seo-audit.conf`:
 
 ```apache
 <VirtualHost *:80>
     ServerName seo.yourdomain.com
-    
+
     ProxyPreserveHost On
     ProxyPass / http://127.0.0.1:3000/
     ProxyPassReverse / http://127.0.0.1:3000/
-    
+
     ErrorLog ${APACHE_LOG_DIR}/seo-audit-error.log
     CustomLog ${APACHE_LOG_DIR}/seo-audit-access.log combined
 </VirtualHost>
 ```
 
-### 6. Apache მოდულების ჩართვა
+Enable Apache modules and the site:
 
 ```bash
 sudo a2enmod proxy proxy_http
@@ -90,7 +103,7 @@ sudo certbot --apache -d seo.yourdomain.com
 
 ---
 
-## სტრუქტურა
+## Project Structure
 
 ```
 /var/www/seo-audit/
@@ -99,18 +112,18 @@ sudo certbot --apache -d seo.yourdomain.com
 │   ├── page.tsx
 │   ├── globals.css
 │   ├── seochecker/
-│   │   └── page.tsx          # მთავარი UI (ქართულად)
+│   │   └── page.tsx          # Main UI
 │   └── api/
 │       └── audit/
 │           └── route.ts      # API endpoint
 ├── lib/
 │   ├── audit/
-│   │   ├── runAudit.ts       # აუდიტის ლოგიკა
-│   │   └── types.ts          # TypeScript ტიპები
+│   │   ├── runAudit.ts       # Audit logic
+│   │   └── types.ts          # TypeScript types
 │   ├── checks/
 │   │   └── patterns.ts       # CMS/Framework patterns
 │   └── fetch/
-│       └── fetchHtml.ts      # HTML fetch
+│       └── fetchHtml.ts      # HTML fetch + helpers
 ├── package.json
 ├── tsconfig.json
 ├── next.config.js
@@ -120,17 +133,17 @@ sudo certbot --apache -d seo.yourdomain.com
 
 ---
 
-## API გამოყენება
+## API Usage
 
 ### POST /api/audit
 
 ```bash
-# URL-ით
+# Audit by URL
 curl -X POST http://localhost:3000/api/audit \
   -H "Content-Type: application/json" \
   -d '{"url": "https://example.com"}'
 
-# HTML-ით
+# Audit by raw HTML
 curl -X POST http://localhost:3000/api/audit \
   -H "Content-Type: application/json" \
   -d '{"html": "<!DOCTYPE html>..."}'
@@ -138,38 +151,31 @@ curl -X POST http://localhost:3000/api/audit \
 
 ---
 
-## სასარგებლო ბრძანებები
+## Useful Commands
 
 ```bash
-# სტატუსი
 pm2 status
-
-# ლოგები
 pm2 logs seo-audit
-
-# რესტარტი
 pm2 restart seo-audit
-
-# გაჩერება
 pm2 stop seo-audit
 ```
 
 ---
 
-## პრობლემების გადაჭრა
+## Troubleshooting
 
 ### "Cannot find module 'jsdom'"
 ```bash
 npm install jsdom @types/jsdom
 ```
 
-### Port 3000 დაკავებულია
+### Port 3000 is in use
 ```bash
-# შეცვალეთ პორტი package.json-ში
+# Change port in package.json
 "start": "next start -p 3001"
 ```
 
-### Apache Proxy არ მუშაობს
+### Apache proxy not working
 ```bash
 sudo a2enmod proxy proxy_http
 sudo systemctl restart apache2
@@ -177,6 +183,6 @@ sudo systemctl restart apache2
 
 ---
 
-## ლიცენზია
+## License
 
 MIT
