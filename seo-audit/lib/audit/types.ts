@@ -245,6 +245,7 @@ export interface LinkData {
 
   internalUrls?: LinkItem[];
   externalUrls?: LinkItem[];
+  paginationUrls?: LinkItem[];
 
   redirectLinks?: number;
   redirectList?: RedirectLinkItem[];
@@ -562,6 +563,7 @@ export interface MobileData {
   // Content Width
   horizontalScrollRisk: boolean; // Fixed widths > 100vw
   fixedWidthElements: number;
+  fixedWidthList?: { width: string; context: string }[];
 
   // Mobile-specific Meta
   hasThemeColor: boolean;

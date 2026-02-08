@@ -83,7 +83,7 @@ interface AuditResult {
   };
   international: { hreflangs: HreflangTag[]; hasXDefault: boolean; hasSelfReference: boolean; canonicalInHreflang: boolean; langMatchesHreflang: boolean; issues: string[]; };
   content: { headings: { h1: string[]; h2: string[]; h3: string[]; h4: string[]; h5: string[]; h6: string[] }; wordCount: number; characterCount: number; sentenceCount: number; paragraphCount: number; readingTime: number; titleH1Duplicate: boolean; duplicateParagraphs: number; aiScore: number; aiPhrases: string[]; readability: ReadabilityData; keywordDensity: KeywordDensity[]; };
-  links: { total: number; internal: number; external: number; broken: number; brokenList: { href: string; text: string; reason?: string; htmlTag?: string }[]; brokenExternalLinks?: number; brokenExternalList?: { href: string; text: string; status: number; error?: string }[]; brokenInternalLinks?: number; brokenInternalList?: { href: string; text: string; status: number; error?: string }[]; genericAnchors: number; genericAnchorsList: { text: string; href: string }[]; nofollow: number; sponsored: number; ugc: number; unsafeExternalCount: number; hasFooterLinks: boolean; hasNavLinks: boolean; internalUrls?: { href: string; text: string }[]; externalUrls?: { href: string; text: string }[]; };
+  links: { total: number; internal: number; external: number; broken: number; brokenList: { href: string; text: string; reason?: string; htmlTag?: string }[]; brokenExternalLinks?: number; brokenExternalList?: { href: string; text: string; status: number; error?: string }[]; brokenInternalLinks?: number; brokenInternalList?: { href: string; text: string; status: number; error?: string }[]; genericAnchors: number; genericAnchorsList: { text: string; href: string }[]; nofollow: number; sponsored: number; ugc: number; unsafeExternalCount: number; hasFooterLinks: boolean; hasNavLinks: boolean; internalUrls?: { href: string; text: string }[]; externalUrls?: { href: string; text: string }[]; paginationUrls?: { href: string; text: string }[]; };
   images: { total: number; withoutAlt: number; withEmptyAlt: number; withoutDimensions: number; lazyLoaded: number; lazyAboveFold: number; clickableWithoutAlt: number; decorativeCount: number; largeImages: number; modernFormats: number; srcsetCount: number; imageSizeAnalysis?: { checked: number; largeCount: number; oldFormatCount: number; largeList: { src: string; size: string; type: string | null }[]; oldFormatList: { src: string; type: string | null }[] } };
   schema: { count: number; types: string[]; valid: number; invalid: number; details: SchemaItem[]; missingContext: number; hasWebSiteSearch: boolean; hasBreadcrumb: boolean; hasOrganization: boolean; hasFAQ: boolean; hasHowTo: boolean; };
   social: { og: { title: string | null; description: string | null; image: string | null; url: string | null; type: string | null; siteName: string | null; locale: string | null }; twitter: { card: string | null; site: string | null; creator: string | null; title: string | null; description: string | null; image: string | null }; isComplete: boolean; hasArticleTags: boolean; };
@@ -93,7 +93,8 @@ interface AuditResult {
   security: { isHttps: boolean; mixedContentCount: number; mixedContentUrls: string[]; protocolRelativeCount: number; unsafeExternalLinks: number; hasCSP: boolean; hasXFrameOptions: boolean; hasXContentTypeOptions: boolean; hasReferrerPolicy: boolean; hasCORS: boolean; formWithoutAction: number; passwordFieldWithoutAutocomplete: number; };
   platform: { cms: string[]; frameworks: string[]; analytics: string[]; advertising: string[]; renderMethod: string; isCSR: boolean; isPWA: boolean; hasAMP: boolean; };
   trustSignals: { hasAboutPage: boolean; hasContactPage: boolean; hasPrivacyPage: boolean; hasTermsPage: boolean; hasCookiePolicy: boolean; hasAuthor: boolean; hasPublishDate: boolean; hasModifiedDate: boolean; hasCopyright: boolean; hasAddress: boolean; hasPhone: boolean; hasEmail: boolean; socialLinksCount: number; socialPlatforms: string[]; hasSSLBadge: boolean; hasPaymentBadges: boolean; hasReviews: boolean; hasCertifications: boolean; };
-  mobile?: { hasViewport: boolean; viewportContent: string | null; hasWidthDeviceWidth: boolean; hasInitialScale: boolean; hasUserScalable: boolean; smallTapTargets: number; tapTargetsList: { element: string; size: string }[]; smallTextElements: number; usesRelativeFontSizes: boolean; hasMediaQueries: boolean; mediaQueryCount: number; hasFlexbox: boolean; hasGrid: boolean; horizontalScrollRisk: boolean; fixedWidthElements: number; hasThemeColor: boolean; hasAppleMobileWebAppCapable: boolean; hasAppleTouchIcon: boolean; hasManifest: boolean; responsiveImagesCount: number; totalImages: number; score: number; issues: string[] };
+  mobile?: { hasViewport: boolean; viewportContent: string | null; hasWidthDeviceWidth: boolean; hasInitialScale: boolean; hasUserScalable: boolean; smallTapTargets: number; tapTargetsList: { element: string; size: string }[]; smallTextElements: number; usesRelativeFontSizes: boolean; hasMediaQueries: boolean; mediaQueryCount: number; hasFlexbox: boolean; hasGrid: boolean; horizontalScrollRisk: boolean; fixedWidthElements: number; fixedWidthList?: { width: string; context: string }[]; hasThemeColor: boolean; hasAppleMobileWebAppCapable: boolean; hasAppleTouchIcon: boolean; hasManifest: boolean; responsiveImagesCount: number; totalImages: number; score: number; issues: string[] };
+  externalResources: { cssFiles: { url: string; isThirdParty: boolean }[]; cssCount: number; jsFiles: { url: string; isThirdParty: boolean; async: boolean; defer: boolean; module: boolean }[]; jsCount: number; fontFiles: { url: string; format: string | null }[]; fontCount: number; googleFonts: string[]; thirdPartyDomains: string[]; thirdPartyCount: number; suggestedPreconnects: string[] };
   issues: AuditIssue[];
   passed: string[];
 }
@@ -1212,6 +1213,101 @@ export default function SEOChecker() {
                   <div className="text-2xl font-bold text-gray-800">{results.performance.estimatedWeight || '—'}</div>
                   <div className="text-sm text-gray-500">HTML Size</div>
                 </div>
+              </div>
+            </Section>
+
+            {/* Loaded Files */}
+            <Section title="Loaded Files" icon={Icons.Folder} id="loaded-files">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
+                <div className="text-center p-4 rounded-lg bg-gray-50">
+                  <div className="text-2xl font-bold text-gray-700">{results.externalResources.cssCount}</div>
+                  <div className="text-sm text-gray-600">Stylesheets</div>
+                </div>
+                <div className="text-center p-4 rounded-lg bg-gray-50">
+                  <div className="text-2xl font-bold text-gray-700">{results.externalResources.jsCount}</div>
+                  <div className="text-sm text-gray-600">Scripts</div>
+                </div>
+                <div className="text-center p-4 rounded-lg bg-gray-50">
+                  <div className="text-2xl font-bold text-gray-700">{results.externalResources.fontCount}</div>
+                  <div className="text-sm text-gray-600">Fonts</div>
+                </div>
+                <div className="text-center p-4 rounded-lg bg-gray-50">
+                  <div className="text-2xl font-bold text-gray-700">{results.externalResources.thirdPartyCount}</div>
+                  <div className="text-sm text-gray-600">3rd-party Domains</div>
+                </div>
+              </div>
+
+              <div className="mt-4 space-y-4">
+                {results.externalResources.cssFiles.length > 0 && (
+                  <details className="group">
+                    <summary className="cursor-pointer font-medium text-gray-800 hover:text-gray-600">
+                      Stylesheets ({results.externalResources.cssFiles.length}) <span className="text-gray-400 text-sm">click to expand</span>
+                    </summary>
+                    <div className="mt-2 p-4 bg-gray-50 border border-gray-200 rounded-lg max-h-64 overflow-auto">
+                      <div className="space-y-2">
+                        {results.externalResources.cssFiles.map((file, i) => (
+                          <div key={i} className="flex items-start justify-between gap-3 text-sm">
+                            <a href={file.url} target="_blank" rel="noopener noreferrer" className="text-blue-700 hover:underline break-all">
+                              {file.url}
+                            </a>
+                            {file.isThirdParty && <span className="text-xs px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700">3rd-party</span>}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </details>
+                )}
+
+                {results.externalResources.jsFiles.length > 0 && (
+                  <details className="group">
+                    <summary className="cursor-pointer font-medium text-gray-800 hover:text-gray-600">
+                      Scripts ({results.externalResources.jsFiles.length}) <span className="text-gray-400 text-sm">click to expand</span>
+                    </summary>
+                    <div className="mt-2 p-4 bg-gray-50 border border-gray-200 rounded-lg max-h-64 overflow-auto">
+                      <div className="space-y-2">
+                        {results.externalResources.jsFiles.map((file, i) => (
+                          <div key={i} className="space-y-1 text-sm">
+                            <div className="flex items-start justify-between gap-3">
+                              <a href={file.url} target="_blank" rel="noopener noreferrer" className="text-blue-700 hover:underline break-all">
+                                {file.url}
+                              </a>
+                              {file.isThirdParty && <span className="text-xs px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700">3rd-party</span>}
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              {file.async && <span className="mr-2">async</span>}
+                              {file.defer && <span className="mr-2">defer</span>}
+                              {file.module && <span className="mr-2">module</span>}
+                              {!file.async && !file.defer && !file.module && <span>blocking</span>}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </details>
+                )}
+
+                {results.externalResources.fontFiles.length > 0 && (
+                  <details className="group">
+                    <summary className="cursor-pointer font-medium text-gray-800 hover:text-gray-600">
+                      Fonts ({results.externalResources.fontFiles.length}) <span className="text-gray-400 text-sm">click to expand</span>
+                    </summary>
+                    <div className="mt-2 p-4 bg-gray-50 border border-gray-200 rounded-lg max-h-64 overflow-auto">
+                      <div className="space-y-2 text-sm">
+                        {results.externalResources.fontFiles.map((file, i) => (
+                          <div key={i} className="flex items-start justify-between gap-3">
+                            <span className="text-gray-700 break-all">{file.url}</span>
+                            {file.format && <span className="text-xs px-2 py-0.5 rounded-full bg-gray-200 text-gray-700">{file.format}</span>}
+                          </div>
+                        ))}
+                        {results.externalResources.googleFonts.length > 0 && (
+                          <div className="text-xs text-gray-500">
+                            Google Fonts: {results.externalResources.googleFonts.join(', ')}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </details>
+                )}
               </div>
             </Section>
 
