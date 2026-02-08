@@ -334,7 +334,7 @@ export async function POST(request: NextRequest) {
               location: '<img src>',
               fix: 'Compress images or use responsive sizes',
               fixGe: 'Compress images or use responsive sizes',
-              details: `Medium priority. Large images slow down page loading. Examples: ${imageAnalysis.largeList.slice(0, 2).map(img => `${img.src.split('/').pop()} (${img.size})`).join(', ')}`
+              details: `Medium priority. Large images slow down page loading.\nExamples:\n${imageAnalysis.largeList.map(img => `• ${img.src} (${img.size})`).join('\n')}`
             });
           }
 

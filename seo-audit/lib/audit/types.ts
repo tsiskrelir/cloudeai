@@ -263,6 +263,18 @@ export interface ImageItem {
   alt: string;
 }
 
+export interface ImageListItem {
+  src: string;
+  alt: string;
+  width: string | null;
+  height: string | null;
+  id: string | null;
+  className: string | null;
+  format: string | null;
+  hasAlt: boolean;
+  hasDimensions: boolean;
+}
+
 export interface ImageData {
   total: number;
   withoutAlt: number;
@@ -280,11 +292,13 @@ export interface ImageData {
   brokenList?: ImageItem[];
 
   imageUrls?: ImageItem[];
+  imageList?: ImageListItem[];
+  pngList?: ImageListItem[];
 
   // Lists for displaying issues
-  withoutAltList?: { src: string; context: string }[];
-  withoutDimensionsList?: { src: string; alt: string }[];
-  emptyAltList?: { src: string; context: string }[];
+  withoutAltList?: { src: string; context: string; elementId?: string | null; snippet?: string }[];
+  withoutDimensionsList?: { src: string; alt: string; elementId?: string | null; snippet?: string }[];
+  emptyAltList?: { src: string; context: string; elementId?: string | null; snippet?: string }[];
 
   imageSizeAnalysis?: {
     checked: number;
@@ -563,7 +577,7 @@ export interface MobileData {
   // Content Width
   horizontalScrollRisk: boolean; // Fixed widths > 100vw
   fixedWidthElements: number;
-  fixedWidthList?: { width: string; context: string }[];
+  fixedWidthList?: { width: string; context: string; elementId?: string | null; snippet?: string }[];
 
   // Mobile-specific Meta
   hasThemeColor: boolean;
