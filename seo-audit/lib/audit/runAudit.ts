@@ -845,6 +845,23 @@ function analyzeLinks(doc: Document, sourceUrl: string) {
   const genericAnchorsList: { text: string; href: string }[] = [];
   const internalUrls: { href: string; text: string }[] = []; // For redirect checking
   const externalUrls: { href: string; text: string }[] = []; // For 404 checking
+  const paginationUrls: { href: string; text: string }[] = [];
+  const paginationSet = new Set<string>();
+
+  const resolveInternalUrl = (href: string): string => {
+    if (href.startsWith('http')) {
+      try {
+        const linkHost = new URL(href).hostname;
+        if (linkHost === sourceHost) return href;
+      } catch {}
+      return '';
+    }
+    if (href.startsWith('/')) return baseUrl + href;
+    if (href.startsWith('./') || (!href.includes(':') && href && !href.startsWith('#'))) {
+      try { return new URL(href, sourceUrl).href; } catch {}
+    }
+    return '';
+  };
 
   links.forEach((a) => {
     const href = a.getAttribute('href') || '';
@@ -903,6 +920,29 @@ function analyzeLinks(doc: Document, sourceUrl: string) {
     if (a.getAttribute('target') === '_blank' && !rel.includes('noopener')) unsafeExternalCount++;
   });
 
+  const paginationSelectors = [
+    'link[rel="prev"][href]',
+    'link[rel="next"][href]',
+    'a[rel="prev"][href]',
+    'a[rel="next"][href]',
+    'nav[aria-label*="pagination" i] a[href]',
+    '.pagination a[href]',
+    '.pager a[href]',
+    '.page-numbers[href]',
+    '.page-numbers a[href]'
+  ];
+
+  doc.querySelectorAll(paginationSelectors.join(',')).forEach((el) => {
+    const href = el.getAttribute('href');
+    if (!href || href.includes('#')) return;
+    const fullUrl = resolveInternalUrl(href);
+    if (!fullUrl) return;
+    if (paginationSet.has(fullUrl)) return;
+    paginationSet.add(fullUrl);
+    const text = el.textContent?.trim() || '';
+    paginationUrls.push({ href: fullUrl, text: text.substring(0, 80) });
+  });
+
   return {
     total: links.length, internal, external, broken, brokenList: brokenList.slice(0, 10),
     genericAnchors, genericAnchorsList: genericAnchorsList.slice(0, 10),
@@ -910,6 +950,7 @@ function analyzeLinks(doc: Document, sourceUrl: string) {
     hasFooterLinks: !!doc.querySelector('footer a'), hasNavLinks: !!doc.querySelector('nav a'),
     internalUrls: internalUrls.slice(0, 50), // For redirect checking and display
     externalUrls: externalUrls.slice(0, 50), // For 404 checking and display
+    paginationUrls: paginationUrls.slice(0, 20), // For pagination-specific checks
     redirectLinks: 0, redirectList: [] as { href: string; text: string; status: number; location: string }[],
     brokenExternalLinks: 0, brokenExternalList: [] as { href: string; text: string; status: number; error?: string }[]
   };
@@ -1548,6 +1589,8 @@ function analyzeMobile(doc: Document, html: string, sourceUrl: string): MobileDa
   let fixedWidthElements = 0;
   let horizontalScrollRisk = false;
   const fixedWidthList: { width: string; context: string }[] = [];
+  const warningWidthThreshold = 320;
+  const mobileWidthThreshold = 360;
 
   // Also check for style attributes on elements
   const elementsWithStyle = doc.querySelectorAll('[style*="width"]');
@@ -1556,9 +1599,9 @@ function analyzeMobile(doc: Document, html: string, sourceUrl: string): MobileDa
     const widthMatch = style.match(/width\s*:\s*(\d+)px/);
     if (widthMatch) {
       const width = parseInt(widthMatch[1]);
-      if (width > 320) {
+      if (width > warningWidthThreshold) {
         fixedWidthElements++;
-        if (width > 500) horizontalScrollRisk = true;
+        if (width > mobileWidthThreshold) horizontalScrollRisk = true;
         if (fixedWidthList.length < 10) {
           const tagName = el.tagName.toLowerCase();
           const className = el.className?.toString().substring(0, 50) || '';
@@ -1572,21 +1615,41 @@ function analyzeMobile(doc: Document, html: string, sourceUrl: string): MobileDa
     }
   });
 
+  // Also check width attributes on elements (tables, images, iframes, etc.)
+  const elementsWithWidthAttr = doc.querySelectorAll('[width]');
+  elementsWithWidthAttr.forEach((el) => {
+    const widthAttr = el.getAttribute('width');
+    const width = widthAttr ? parseInt(widthAttr, 10) : NaN;
+    if (!Number.isNaN(width) && width > warningWidthThreshold) {
+      fixedWidthElements++;
+      if (width > mobileWidthThreshold) horizontalScrollRisk = true;
+      if (fixedWidthList.length < 10) {
+        const tagName = el.tagName.toLowerCase();
+        const className = el.className?.toString().substring(0, 50) || '';
+        const id = el.id || '';
+        fixedWidthList.push({
+          width: `${width}px`,
+          context: `<${tagName}${id ? ` id="${id}"` : ''}${className ? ` class="${className}"` : ''} width="${widthAttr}">`
+        });
+      }
+    }
+  });
+
   // Also count inline style widths
   fixedWidthMatches.forEach((match) => {
     const width = parseInt(match.match(/(\d+)/)?.[1] || '0');
-    if (width > 320) {
-      if (width > 500) horizontalScrollRisk = true;
+    if (width > warningWidthThreshold) {
+      if (width > mobileWidthThreshold) horizontalScrollRisk = true;
     }
   });
 
   if (horizontalScrollRisk) {
-    issues.push('Fixed-width elements >500px cause horizontal scrolling on mobile');
+    issues.push(`Fixed-width elements >${mobileWidthThreshold}px cause horizontal scrolling on mobile`);
     score -= 15;
   }
 
   if (fixedWidthElements > 0 && !horizontalScrollRisk) {
-    issues.push(`${fixedWidthElements} element(s) with fixed width >320px may cause issues on small screens`);
+    issues.push(`${fixedWidthElements} element(s) with fixed width >${warningWidthThreshold}px may cause issues on small screens`);
   }
 
   // Responsive images
@@ -1984,7 +2047,12 @@ function collectIssues(data: any): AuditIssue[] {
 
   if (mobile && mobile.smallTapTargets > 10) issues.push({ id: 'small-tap-targets', severity: 'high', category: 'Mobile', issue: `${mobile.smallTapTargets} small tap targets detected`, issueGe: `${mobile.smallTapTargets} small tap targets detected`, location: 'Links/Buttons', fix: 'Ensure tap targets are at least 48x48px with 8px spacing', fixGe: 'Ensure tap targets are at least 48x48px with 8px spacing', details: `${SEVERITY_PHRASES.high} Users cannot tap small elements on mobile. Google recommends: minimum 48x48px.` });
 
-  if (mobile && mobile.horizontalScrollRisk) issues.push({ id: 'horizontal-scroll', severity: 'high', category: 'Mobile', issue: 'Page may require horizontal scrolling on mobile', issueGe: 'Page may require horizontal scrolling on mobile', location: 'Fixed-width elements', fix: 'Use max-width: 100% and responsive units', fixGe: 'Use max-width: 100% and responsive units', details: `${SEVERITY_PHRASES.high} Fixed-width elements cause horizontal scrolling. Use % or vw units.` });
+  if (mobile && mobile.horizontalScrollRisk) {
+    const fixedWidthExamples = mobile.fixedWidthList && mobile.fixedWidthList.length > 0
+      ? ` Examples: ${mobile.fixedWidthList.map((item) => `${item.context} (${item.width})`).join('; ')}`
+      : '';
+    issues.push({ id: 'horizontal-scroll', severity: 'high', category: 'Mobile', issue: 'Page may require horizontal scrolling on mobile', issueGe: 'Page may require horizontal scrolling on mobile', location: 'Fixed-width elements', fix: 'Use max-width: 100% and responsive units', fixGe: 'Use max-width: 100% and responsive units', details: `${SEVERITY_PHRASES.high} Fixed-width elements cause horizontal scrolling. Use % or vw units.${fixedWidthExamples}` });
+  }
 
   if (mobile && !mobile.hasMediaQueries && !mobile.hasFlexbox && !mobile.hasGrid) issues.push({ id: 'no-responsive', severity: 'high', category: 'Mobile', issue: 'No responsive design detected', issueGe: 'No responsive design detected', location: 'CSS', fix: 'Add media queries or use flexbox/grid', fixGe: 'Add media queries or use flexbox/grid', details: `${SEVERITY_PHRASES.high} Responsive design is essential for mobile devices. Use @media queries, flexbox, or CSS grid.` });
 

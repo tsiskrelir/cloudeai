@@ -129,8 +129,22 @@ export async function POST(request: NextRequest) {
         }
 
         // Check internal links for redirects AND 404 errors (limit to 15 for performance)
-        if (result.links.internalUrls && result.links.internalUrls.length > 0) {
-          const linksToCheck = result.links.internalUrls.slice(0, 15);
+        const paginationLinks = result.links.paginationUrls || [];
+        const internalLinks = result.links.internalUrls || [];
+        if (internalLinks.length > 0 || paginationLinks.length > 0) {
+          const seenInternal = new Set<string>();
+          const prioritizedLinks: { href: string; text: string }[] = [];
+          const addLink = (link?: { href: string; text: string }) => {
+            if (!link?.href || seenInternal.has(link.href)) return;
+            seenInternal.add(link.href);
+            prioritizedLinks.push(link);
+          };
+
+          paginationLinks.forEach(addLink);
+          internalLinks.forEach(addLink);
+
+          const maxInternalChecks = 15;
+          const linksToCheck = prioritizedLinks.slice(0, Math.max(maxInternalChecks, paginationLinks.length));
           const redirectResults = await checkLinksForRedirects(linksToCheck, 5);
 
           if (redirectResults.length > 0) {
@@ -176,6 +190,22 @@ export async function POST(request: NextRequest) {
               fixGe: 'Fix or remove broken internal links',
               details: `Critical priority. Broken internal links severely harm user experience and SEO. Found: ${actualBrokenInternal.slice(0, 3).map(r => `${r.href} → ${r.status || r.error}`).join('; ')}`
             });
+
+            const paginationSet = new Set(paginationLinks.map((link) => link.href));
+            const brokenPagination = actualBrokenInternal.filter((r: { href: string }) => paginationSet.has(r.href));
+            if (brokenPagination.length > 0) {
+              result.issues.push({
+                id: 'broken-pagination-links',
+                severity: 'high' as const,
+                category: 'Links',
+                issue: `${brokenPagination.length} pagination link(s) are broken (404/error)`,
+                issueGe: `${brokenPagination.length} pagination link(s) are broken (404/error)`,
+                location: 'Pagination navigation',
+                fix: 'Update or remove broken pagination URLs',
+                fixGe: 'Update or remove broken pagination URLs',
+                details: `High priority. Broken pagination blocks crawl depth and user navigation. Found: ${brokenPagination.slice(0, 3).map(r => `${r.href} → ${r.status || r.error}`).join('; ')}`
+              });
+            }
           }
         }
 
