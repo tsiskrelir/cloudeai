@@ -325,6 +325,15 @@ export async function checkExternalLinks(
           }
 
           // Only report actual 404, 410, 500+ errors
+          // Handle 999 status (LinkedIn blocking) separately - not a broken link
+          if (res.status === 999) {
+            return {
+              href: link.href,
+              text: link.text,
+              status: res.status,
+              error: 'Blocked by site (anti-bot protection)',
+            };
+          }
           if (res.status === 404 || res.status === 410 || res.status >= 500) {
             return {
               href: link.href,

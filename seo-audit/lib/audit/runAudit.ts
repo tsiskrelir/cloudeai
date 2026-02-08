@@ -723,8 +723,23 @@ function analyzeContent(doc: Document, htmlLower: string, title: string, htmlLan
   if (titleContentLangMismatch) {
     const titleWords = visibleTitleText.split(/[\s\-–—|:,»«„"]+/).filter(w => w.length > 0);
 
-    // Common English words that appear in brand names or are universal
-    const universalTerms = new Set(['gmbh', 'ag', 'ltd', 'inc', 'corp', 'llc', 'co', 'group', 'team', 'pro', 'plus', 'online', 'digital', 'media', 'tech', 'web', 'app', 'cloud', 'smart', 'service', 'partner', 'consulting', 'solutions', 'academy', 'studio', 'design', 'shop', 'store', 'blog', 'news', 'home', 'page', 'site']);
+    // Universal terms that appear in many languages - business, tech, and common borrowed English words
+    const universalTerms = new Set([
+      // Business entities
+      'gmbh', 'ag', 'ltd', 'inc', 'corp', 'llc', 'co', 'kg', 'ohg', 'ug', 'se', 'sa', 'srl', 'bv', 'nv',
+      // Common business terms used internationally
+      'group', 'team', 'pro', 'plus', 'online', 'digital', 'media', 'tech', 'web', 'app', 'cloud', 'smart',
+      'service', 'services', 'partner', 'partners', 'consulting', 'solutions', 'academy', 'studio', 'design',
+      'shop', 'store', 'blog', 'news', 'home', 'page', 'site', 'center', 'centre', 'hub', 'lab', 'labs',
+      // Marketing/SEO terms
+      'seo', 'marketing', 'agency', 'brand', 'branding', 'creative', 'content', 'strategy', 'growth',
+      // Tech terms borrowed into German/other languages
+      'software', 'hardware', 'system', 'systems', 'network', 'data', 'server', 'hosting', 'domain',
+      'email', 'mail', 'support', 'help', 'info', 'contact', 'about', 'login', 'portal', 'dashboard',
+      // Common borrowed words in German
+      'job', 'jobs', 'career', 'manager', 'management', 'business', 'company', 'office', 'express',
+      'global', 'international', 'world', 'expert', 'experts', 'premium', 'special', 'best', 'top', 'first'
+    ]);
 
     // Filter out brand-like words to see if remaining text matches content language
     const nonBrandWords = titleWords.filter(word => {
