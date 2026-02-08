@@ -83,6 +83,16 @@ export async function runAudit(
 // FLESCH READING SCORE (Multi-language support)
 // ============================================
 
+function getCanonicalLinks(doc: Document): HTMLLinkElement[] {
+  return Array.from(doc.querySelectorAll('link[rel]')).filter((link) => {
+    const rel = link.getAttribute('rel');
+    if (!rel) return false;
+    return rel
+      .split(/\s+/)
+      .some((token) => token.toLowerCase() === 'canonical');
+  });
+}
+
 // Common English loanwords used internationally - should NOT trigger English detection
 const INTERNATIONAL_LOANWORDS = new Set([
   'online', 'offline', 'website', 'internet', 'email', 'software', 'hardware', 'computer',
@@ -448,10 +458,14 @@ function analyzeTechnical(doc: Document, sourceUrl: string, htmlLower: string, o
   const h1Element = doc.querySelector('h1');
   const visibleTitle = h1Element?.textContent?.trim() || title; // H1 is the visible title, fallback to <title>
   const metaDesc = doc.querySelector('meta[name="description"]')?.getAttribute('content')?.trim() || '';
-  const canonicals = doc.querySelectorAll('link[rel="canonical"]');
-  const canonicalHref = canonicals[0]?.getAttribute('href') || null;
+  const canonicals = getCanonicalLinks(doc);
+  const canonicalHref = canonicals[0]?.getAttribute('href')?.trim() || null;
   let isCrossDomain = false;
-  if (canonicalHref && sourceUrl) { try { isCrossDomain = new URL(canonicalHref).hostname !== new URL(sourceUrl).hostname; } catch {} }
+  if (canonicalHref && sourceUrl) {
+    try {
+      isCrossDomain = new URL(canonicalHref, sourceUrl).hostname !== new URL(sourceUrl).hostname;
+    } catch {}
+  }
 
   const robotsMeta = doc.querySelector('meta[name="robots"]')?.getAttribute('content')?.toLowerCase() || null;
   const googlebotMeta = doc.querySelector('meta[name="googlebot"]')?.getAttribute('content')?.toLowerCase() || '';
@@ -2302,7 +2316,7 @@ function analyzeCrawl(doc: Document, technical: any, content: any): any {
   if (technical.robotsTxt?.blocksAll) indexabilityIssues.push('robots.txt blocks all crawlers');
 
   // Canonicalization
-  const canonical = doc.querySelector('link[rel="canonical"]')?.getAttribute('href');
+  const canonical = getCanonicalLinks(doc)[0]?.getAttribute('href')?.trim();
   const selfCanonical = canonical === technical.canonical?.href;
   if (!canonical) canonicalIssues.push('Missing canonical tag');
   if (technical.canonical?.count > 1) canonicalIssues.push('Multiple canonical tags');
