@@ -716,35 +716,43 @@ function analyzeContent(doc: Document, htmlLower: string, title: string, htmlLan
   const titleLanguage = visibleTitleText.length > 10 ? detectLanguage(visibleTitleText, null) : null;
 
   // Check if title language matches content language
-  // Allow brand names in English: if title is detected as English but declared language is different,
-  // check if removing brand-like words (short capitalized words, common tech/brand terms) leaves non-English text
+  // Allow brand names in English: titles often have English brand names even on non-English sites
+  // This shouldn't be flagged as an error if the rest of the title matches the content language
   let titleContentLangMismatch = titleLanguage && detectedLanguage && titleLanguage !== detectedLanguage;
 
-  if (titleContentLangMismatch && titleLanguage === 'en' && declaredLanguage && declaredLanguage !== 'en') {
-    // Common brand patterns: capitalized short words, tech/company suffixes
-    // If the title has brand-like patterns and the rest matches declared language, it's OK
-    const titleWords = visibleTitleText.split(/[\s\-–—|:]+/).filter(w => w.length > 0);
+  if (titleContentLangMismatch) {
+    const titleWords = visibleTitleText.split(/[\s\-–—|:,»«„"]+/).filter(w => w.length > 0);
 
-    // Remove potential brand words: all-caps, CamelCase, short words (≤6 chars), common suffixes
+    // Common English words that appear in brand names or are universal
+    const universalTerms = new Set(['gmbh', 'ag', 'ltd', 'inc', 'corp', 'llc', 'co', 'group', 'team', 'pro', 'plus', 'online', 'digital', 'media', 'tech', 'web', 'app', 'cloud', 'smart', 'service', 'partner', 'consulting', 'solutions', 'academy', 'studio', 'design', 'shop', 'store', 'blog', 'news', 'home', 'page', 'site']);
+
+    // Filter out brand-like words to see if remaining text matches content language
     const nonBrandWords = titleWords.filter(word => {
-      const cleanWord = word.replace(/[^\p{L}]/gu, '');
-      if (!cleanWord) return false;
-      // Skip if: all uppercase, very short, or looks like a brand name (CamelCase, trademark symbols)
-      if (cleanWord.length <= 4) return false; // Short words often brands: Nike, Zara, BMW
-      if (cleanWord === cleanWord.toUpperCase() && cleanWord.length <= 6) return false; // ACME, IBM
-      if (/^[A-Z][a-z]+[A-Z]/.test(cleanWord)) return false; // CamelCase like iPhone
+      const cleanWord = word.replace(/[^\p{L}]/gu, '').toLowerCase();
+      if (!cleanWord || cleanWord.length <= 2) return false;
+      // Skip universal business/tech terms
+      if (universalTerms.has(cleanWord)) return false;
+      // Skip very short words (often brands: Nike, Zara, BMW, SAP)
+      if (cleanWord.length <= 4 && /^[A-Z]/.test(word)) return false;
+      // Skip all-caps words (IBM, NASA, ACME)
+      if (word === word.toUpperCase() && word.length <= 8) return false;
+      // Skip CamelCase (iPhone, PayPal, YouTube)
+      if (/^[A-Z][a-z]+[A-Z]/.test(word)) return false;
+      // Skip words starting with capital in a context where that's unusual
+      if (/^[A-Z][a-z]*$/.test(word) && word.length <= 8) return false;
       return true;
     });
 
-    // If remaining text matches declared language or is minimal, allow it
+    // Check remaining text
     const remainingText = nonBrandWords.join(' ');
     if (remainingText.length < 15 || nonBrandWords.length <= 2) {
-      // Title is mostly brand name, allow it
+      // Title is mostly brand names/universal terms, allow it
       titleContentLangMismatch = false;
-    } else {
-      // Check if remaining text matches declared language
+    } else if (declaredLanguage || detectedLanguage) {
+      // Check if remaining text matches declared/detected content language
       const remainingLang = detectLanguage(remainingText, null);
-      if (remainingLang === declaredLanguage) {
+      const expectedLang = declaredLanguage || detectedLanguage;
+      if (remainingLang === expectedLang) {
         titleContentLangMismatch = false;
       }
     }
@@ -752,6 +760,9 @@ function analyzeContent(doc: Document, htmlLower: string, title: string, htmlLan
 
   // Keyword extraction - include Georgian, Cyrillic, German umlauts, Spanish
   // Focus on longer words (4+ chars) which are more likely to be nouns/verbs
+  // Filter out page builder syntax (Elementor, WPBakery, Divi, Gutenberg, etc.)
+  const pageBuilderPatterns = /^(elementor|wpb|vc_|divi|et_|fl_|fusion|avada|themify|beaver|brizy|oxygen|generateblocks|kadence|stackable|cwp|ugb|uagb|spectra|qubely|jetelements|premium|starter|starter|widget|shortcode|block|module|column|row|section|container|wrapper|inner|layout|grid|flex|content|image|text|button|icon|heading|title|spacer|divider|video|slider|carousel|gallery|accordion|tabs|toggle|counter|progress|testimonial|team|pricing|cta|hero|footer|header|sidebar|menu|nav|post|page|template|dynamic|custom|global|default|style|class|data|attr|config|setting|option|param|args|props|item|list|group|set|get|init|load|render|update|create|destroy|handle|trigger|bind|unbind|ajax|json|html|css|js|php|api|url|src|href|alt|rel|type|name|value|id|index|key|ref|state|effect|hook|context|provider|consumer|redux|store|action|reducer|dispatch|selector|slice|thunk|saga|observable|stream|pipe|map|filter|reduce|foreach|async|await|promise|callback|then|catch|finally|try|error|exception|throw|return|export|import|require|module|define|extend|inherit|super|this|self|proto|constructor|instance|static|public|private|protected|abstract|interface|implements|extends|mixin|trait|decorator|annotation|metadata|reflect|proxy|handler|target|receiver|apply|call|bind|prototype|property|descriptor|enumerable|configurable|writable|freeze|seal|assign|keys|values|entries|from|isarray|typeof|instanceof|null|undefined|true|false|nan|infinity|math|date|regexp|string|number|boolean|object|array|function|symbol|bigint|void|never|any|unknown)$/i;
+
   const wordFreq: Record<string, number> = {};
   const cleanedWords: string[] = [];
 
@@ -760,7 +771,8 @@ function analyzeContent(doc: Document, htmlLower: string, title: string, htmlLan
     const word = w.toLowerCase().replace(/[^\u10A0-\u10FF\u0400-\u04FFa-z0-9äöüßáéíóúñ]/g, '');
     cleanedWords.push(word);
     // Require 4+ characters for better noun/verb detection (excludes most prepositions/articles)
-    if (word.length >= 4 && !PATTERNS.STOP_WORDS.has(word)) {
+    // Also filter out page builder syntax and technical terms
+    if (word.length >= 4 && !PATTERNS.STOP_WORDS.has(word) && !pageBuilderPatterns.test(word)) {
       wordFreq[word] = (wordFreq[word] || 0) + 1;
     }
   });

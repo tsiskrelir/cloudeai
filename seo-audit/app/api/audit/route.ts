@@ -89,7 +89,20 @@ export async function POST(request: NextRequest) {
         ]);
 
         if (robots) {
-          result.technical.robotsTxt = { found: true, content: robots, blocksAll: robots.includes('Disallow: /'), hasSitemap: robots.toLowerCase().includes('sitemap:') };
+          // Only blocks all if User-agent: * has Disallow: / without Allow: / (per Google rules)
+          const checkBlocksAll = (content: string): boolean => {
+            const lines = content.split('\n').map(l => l.trim().toLowerCase());
+            let inWildcard = false, hasDisallowRoot = false, hasAllowRoot = false;
+            for (const line of lines) {
+              if (line.startsWith('user-agent:')) inWildcard = line.replace('user-agent:', '').trim() === '*';
+              else if (inWildcard) {
+                if (line.startsWith('disallow:') && line.replace('disallow:', '').trim() === '/') hasDisallowRoot = true;
+                if (line.startsWith('allow:') && (line.replace('allow:', '').trim() === '/' || line.replace('allow:', '').trim() === '/*')) hasAllowRoot = true;
+              }
+            }
+            return hasDisallowRoot && !hasAllowRoot;
+          };
+          result.technical.robotsTxt = { found: true, content: robots, blocksAll: checkBlocksAll(robots), hasSitemap: robots.toLowerCase().includes('sitemap:') };
         }
         result.technical.sitemap = { ...sitemap, urlCount: sitemap.urlCount };
         result.technical.llmsTxt = { found: llmsTxt.found, mentioned: result.technical.llmsTxt?.mentioned || false, content: llmsTxt.content };

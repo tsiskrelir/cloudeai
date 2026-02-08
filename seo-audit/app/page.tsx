@@ -513,21 +513,26 @@ export default function SEOChecker() {
                 </div>
 
                 {/* Links Pie Chart */}
-                <div className="p-6 bg-gray-50 rounded-xl">
-                  <h3 className="font-semibold text-gray-800 mb-4">Links Distribution</h3>
-                  <div className="flex items-center justify-center gap-4">
-                    <PieChart data={[
-                      { label: 'Internal', value: results.links.internal, color: COLORS.accent },
-                      { label: 'External', value: results.links.external, color: COLORS.secondary },
-                      { label: 'Broken', value: results.links.broken, color: '#ef4444' },
-                    ]} size={100} />
-                    <div className="space-y-2 text-sm">
-                      <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full" style={{ backgroundColor: COLORS.accent }} /><span>Internal: {results.links.internal}</span></div>
-                      <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full" style={{ backgroundColor: COLORS.secondary }} /><span>External: {results.links.external}</span></div>
-                      <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-red-500" /><span>Broken: {results.links.broken}</span></div>
+                {(() => {
+                  const brokenCount = (results.links.brokenList?.length || 0) + (results.technical.siteTree?.issues?.filter((i: { status?: number }) => i.status === 404)?.length || 0);
+                  return (
+                    <div className="p-6 bg-gray-50 rounded-xl">
+                      <h3 className="font-semibold text-gray-800 mb-4">Links Distribution</h3>
+                      <div className="flex items-center justify-center gap-4">
+                        <PieChart data={[
+                          { label: 'Internal', value: results.links.internal, color: COLORS.accent },
+                          { label: 'External', value: results.links.external, color: COLORS.secondary },
+                          { label: 'Broken', value: brokenCount, color: '#ef4444' },
+                        ]} size={100} />
+                        <div className="space-y-2 text-sm">
+                          <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full" style={{ backgroundColor: COLORS.accent }} /><span>Internal: {results.links.internal}</span></div>
+                          <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full" style={{ backgroundColor: COLORS.secondary }} /><span>External: {results.links.external}</span></div>
+                          <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-red-500" /><span>Broken: {brokenCount}</span></div>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                </div>
+                  );
+                })()}
               </div>
 
               {/* Quick Stats */}
@@ -1243,40 +1248,21 @@ export default function SEOChecker() {
 
             {/* Links */}
             <Section title="Links" icon={Icons.Link} id="links">
-              <div className="grid grid-cols-2 md:grid-cols-6 gap-4 mt-4">
-                <div className="text-center p-4 rounded-lg" style={{ backgroundColor: `${COLORS.primary}10` }}><div className="text-2xl font-bold" style={{ color: COLORS.primary }}>{results.links.total}</div><div className="text-sm text-gray-600">Total</div></div>
-                <div className="text-center p-4 bg-green-50 rounded-lg"><div className="text-2xl font-bold text-green-700">{results.links.internal}</div><div className="text-sm text-green-600">Internal</div></div>
-                <div className="text-center p-4 rounded-lg" style={{ backgroundColor: `${COLORS.secondary}15` }}><div className="text-2xl font-bold" style={{ color: COLORS.primary }}>{results.links.external}</div><div className="text-sm text-gray-600">External</div></div>
-                <div className={`text-center p-4 rounded-lg ${results.links.broken > 0 ? 'bg-red-50' : 'bg-gray-50'}`}><div className={`text-2xl font-bold ${results.links.broken > 0 ? 'text-red-700' : 'text-gray-700'}`}>{results.links.broken}</div><div className="text-sm text-gray-600">Empty/Broken</div></div>
-                <div className={`text-center p-4 rounded-lg ${results.links.genericAnchors > 0 ? 'bg-yellow-50' : 'bg-gray-50'}`}><div className={`text-2xl font-bold ${results.links.genericAnchors > 0 ? 'text-yellow-700' : 'text-gray-700'}`}>{results.links.genericAnchors}</div><div className="text-sm text-gray-600">Generic</div></div>
-                <div className="text-center p-4 bg-gray-50 rounded-lg"><div className="text-2xl font-bold text-gray-700">{results.links.nofollow}</div><div className="text-sm text-gray-600">Nofollow</div></div>
-              </div>
-
-              {/* Broken Links - combine empty hrefs and HTTP 404 errors from sitemap */}
               {(() => {
                 const emptyBroken = results.links.brokenList || [];
-                const http404Broken = results.technical.siteTree?.issues?.filter(i => i.status === 404) || [];
-                const totalBroken = emptyBroken.length + http404Broken.length;
-                if (totalBroken === 0) return null;
+                const http404Broken = results.technical.siteTree?.issues?.filter((i: { status?: number }) => i.status === 404) || [];
+                const totalBrokenCount = emptyBroken.length + http404Broken.length;
                 return (
-                  <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
-                    <div className="font-medium text-red-800 mb-2">Broken/Empty Links ({totalBroken})</div>
-                    <div className="space-y-2 max-h-64 overflow-auto">
-                      {emptyBroken.map((link, i) => (
-                        <div key={`empty-${i}`} className="p-2 bg-white rounded text-sm border border-red-100">
-                          <code className="text-red-700 break-all">{link.href || '(empty)'}</code>
-                          {link.text && <span className="text-gray-500 ml-2">- {link.text}</span>}
-                          {link.reason && <div className="text-xs text-red-600 mt-1">{link.reason}</div>}
-                        </div>
-                      ))}
-                      {http404Broken.map((issue, i) => (
-                        <div key={`http-${i}`} className="p-2 bg-white rounded text-sm border border-red-100">
-                          <code className="text-red-700 break-all">{issue.url}</code>
-                          <div className="text-xs text-red-600 mt-1">HTTP 404 - Page not found</div>
-                        </div>
-                      ))}
+                  <>
+                    <div className="grid grid-cols-2 md:grid-cols-6 gap-4 mt-4">
+                      <div className="text-center p-4 rounded-lg" style={{ backgroundColor: `${COLORS.primary}10` }}><div className="text-2xl font-bold" style={{ color: COLORS.primary }}>{results.links.total}</div><div className="text-sm text-gray-600">Total</div></div>
+                      <div className="text-center p-4 bg-green-50 rounded-lg"><div className="text-2xl font-bold text-green-700">{results.links.internal}</div><div className="text-sm text-green-600">Internal</div></div>
+                      <div className="text-center p-4 rounded-lg" style={{ backgroundColor: `${COLORS.secondary}15` }}><div className="text-2xl font-bold" style={{ color: COLORS.primary }}>{results.links.external}</div><div className="text-sm text-gray-600">External</div></div>
+                      <div className={`text-center p-4 rounded-lg ${totalBrokenCount > 0 ? 'bg-red-50' : 'bg-gray-50'}`}><div className={`text-2xl font-bold ${totalBrokenCount > 0 ? 'text-red-700' : 'text-gray-700'}`}>{totalBrokenCount}</div><div className="text-sm text-gray-600">Broken</div></div>
+                      <div className={`text-center p-4 rounded-lg ${results.links.genericAnchors > 0 ? 'bg-yellow-50' : 'bg-gray-50'}`}><div className={`text-2xl font-bold ${results.links.genericAnchors > 0 ? 'text-yellow-700' : 'text-gray-700'}`}>{results.links.genericAnchors}</div><div className="text-sm text-gray-600">Generic</div></div>
+                      <div className="text-center p-4 bg-gray-50 rounded-lg"><div className="text-2xl font-bold text-gray-700">{results.links.nofollow}</div><div className="text-sm text-gray-600">Nofollow</div></div>
                     </div>
-                  </div>
+                  </>
                 );
               })()}
 
@@ -1321,6 +1307,40 @@ export default function SEOChecker() {
                   </details>
                 </div>
               )}
+
+              {/* Broken Links - combine empty hrefs and HTTP 404 errors from sitemap */}
+              {(() => {
+                const emptyBroken = results.links.brokenList || [];
+                const http404Broken = results.technical.siteTree?.issues?.filter((i: { status?: number }) => i.status === 404) || [];
+                const totalBroken = emptyBroken.length + http404Broken.length;
+                if (totalBroken === 0) return null;
+                return (
+                  <div className="mt-4">
+                    <details className="group" open>
+                      <summary className="cursor-pointer font-medium text-red-800 hover:text-red-600">
+                        Broken Links ({totalBroken}) <span className="text-gray-400 text-sm">click to expand/collapse</span>
+                      </summary>
+                      <div className="mt-2 p-4 bg-red-50 border border-red-200 rounded-lg max-h-64 overflow-auto">
+                        <div className="space-y-2">
+                          {emptyBroken.map((link: { href: string; text?: string; reason?: string }, i: number) => (
+                            <div key={`empty-${i}`} className="p-2 bg-white rounded text-sm border border-red-100">
+                              <code className="text-red-700 break-all">{link.href || '(empty)'}</code>
+                              {link.text && <span className="text-gray-500 ml-2">- {link.text}</span>}
+                              {link.reason && <div className="text-xs text-red-600 mt-1">{link.reason}</div>}
+                            </div>
+                          ))}
+                          {http404Broken.map((issue: { url: string }, i: number) => (
+                            <div key={`http-${i}`} className="p-2 bg-white rounded text-sm border border-red-100">
+                              <code className="text-red-700 break-all">{issue.url}</code>
+                              <div className="text-xs text-red-600 mt-1">HTTP 404 - Page not found</div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </details>
+                  </div>
+                );
+              })()}
 
               {/* Generic Anchors */}
               {results.links.genericAnchorsList && results.links.genericAnchorsList.length > 0 && (
