@@ -128,9 +128,9 @@ export async function POST(request: NextRequest) {
           });
         }
 
-        // Check internal links for redirects (limit to 10 for performance)
+        // Check internal links for redirects AND 404 errors (limit to 15 for performance)
         if (result.links.internalUrls && result.links.internalUrls.length > 0) {
-          const linksToCheck = result.links.internalUrls.slice(0, 10);
+          const linksToCheck = result.links.internalUrls.slice(0, 15);
           const redirectResults = await checkLinksForRedirects(linksToCheck, 5);
 
           if (redirectResults.length > 0) {
@@ -152,6 +152,31 @@ export async function POST(request: NextRequest) {
               details: `Medium priority. Redirects slow down page loading and leak PageRank. Found: ${redirectResults.slice(0, 3).map(r => `${r.href} → ${r.status}`).join('; ')}`
             });
           }
+
+          // Also check internal links for 404 errors (pagination, etc.)
+          const brokenInternalLinks = await checkExternalLinks(linksToCheck, 3);
+          const actualBrokenInternal = brokenInternalLinks.filter((r: { status: number; error?: string }) =>
+            !r.error?.includes('Blocked') && (r.status === 404 || r.status === 410 || r.status >= 500 || r.status === 0)
+          );
+
+          if (actualBrokenInternal.length > 0) {
+            result.links.brokenInternalLinks = actualBrokenInternal.length;
+            result.links.brokenInternalList = actualBrokenInternal.map((r: { href: string; text: string; status: number; error?: string }) => ({
+              href: r.href, text: r.text, status: r.status, error: r.error
+            }));
+
+            result.issues.push({
+              id: 'broken-internal-links',
+              severity: 'critical' as const,
+              category: 'Links',
+              issue: `${actualBrokenInternal.length} internal link(s) are broken (404/error)`,
+              issueGe: `${actualBrokenInternal.length} internal link(s) are broken (404/error)`,
+              location: '<a href>',
+              fix: 'Fix or remove broken internal links',
+              fixGe: 'Fix or remove broken internal links',
+              details: `Critical priority. Broken internal links severely harm user experience and SEO. Found: ${actualBrokenInternal.slice(0, 3).map(r => `${r.href} → ${r.status || r.error}`).join('; ')}`
+            });
+          }
         }
 
         // Check external links for 404 errors (limit to 15 for performance)
@@ -159,9 +184,12 @@ export async function POST(request: NextRequest) {
           const externalLinks = result.links.externalUrls.slice(0, 15);
           const brokenExternalLinks = await checkExternalLinks(externalLinks, 3);
 
-          if (brokenExternalLinks.length > 0) {
-            result.links.brokenExternalLinks = brokenExternalLinks.length;
-            result.links.brokenExternalList = brokenExternalLinks.map((r: { href: string; text: string; status: number; error?: string }) => ({
+          // Filter out blocked links (999 status) - not real errors
+          const actualBroken = brokenExternalLinks.filter((r: { error?: string }) => !r.error?.includes('Blocked'));
+
+          if (actualBroken.length > 0) {
+            result.links.brokenExternalLinks = actualBroken.length;
+            result.links.brokenExternalList = actualBroken.map((r: { href: string; text: string; status: number; error?: string }) => ({
               href: r.href, text: r.text, status: r.status, error: r.error
             }));
 
@@ -169,12 +197,12 @@ export async function POST(request: NextRequest) {
               id: 'broken-external-links',
               severity: 'high' as const,
               category: 'Links',
-              issue: `${brokenExternalLinks.length} external link(s) are broken (404/error)`,
-              issueGe: `${brokenExternalLinks.length} external link(s) are broken (404/error)`,
+              issue: `${actualBroken.length} external link(s) are broken (404/error)`,
+              issueGe: `${actualBroken.length} external link(s) are broken (404/error)`,
               location: '<a href>',
               fix: 'Remove or update broken external links',
               fixGe: 'Remove or update broken external links',
-              details: `High priority. Broken external links harm user experience and SEO. Found: ${brokenExternalLinks.slice(0, 3).map(r => `${r.href} → ${r.status || r.error}`).join('; ')}`
+              details: `High priority. Broken external links harm user experience and SEO. Found: ${actualBroken.slice(0, 3).map(r => `${r.href} → ${r.status || r.error}`).join('; ')}`
             });
           }
         }

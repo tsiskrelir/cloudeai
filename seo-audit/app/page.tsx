@@ -83,7 +83,7 @@ interface AuditResult {
   };
   international: { hreflangs: HreflangTag[]; hasXDefault: boolean; hasSelfReference: boolean; canonicalInHreflang: boolean; langMatchesHreflang: boolean; issues: string[]; };
   content: { headings: { h1: string[]; h2: string[]; h3: string[]; h4: string[]; h5: string[]; h6: string[] }; wordCount: number; characterCount: number; sentenceCount: number; paragraphCount: number; readingTime: number; titleH1Duplicate: boolean; duplicateParagraphs: number; aiScore: number; aiPhrases: string[]; readability: ReadabilityData; keywordDensity: KeywordDensity[]; };
-  links: { total: number; internal: number; external: number; broken: number; brokenList: { href: string; text: string; reason?: string; htmlTag?: string }[]; brokenExternalLinks?: number; brokenExternalList?: { href: string; text: string; status: number; error?: string }[]; genericAnchors: number; genericAnchorsList: { text: string; href: string }[]; nofollow: number; sponsored: number; ugc: number; unsafeExternalCount: number; hasFooterLinks: boolean; hasNavLinks: boolean; internalUrls?: { href: string; text: string }[]; externalUrls?: { href: string; text: string }[]; };
+  links: { total: number; internal: number; external: number; broken: number; brokenList: { href: string; text: string; reason?: string; htmlTag?: string }[]; brokenExternalLinks?: number; brokenExternalList?: { href: string; text: string; status: number; error?: string }[]; brokenInternalLinks?: number; brokenInternalList?: { href: string; text: string; status: number; error?: string }[]; genericAnchors: number; genericAnchorsList: { text: string; href: string }[]; nofollow: number; sponsored: number; ugc: number; unsafeExternalCount: number; hasFooterLinks: boolean; hasNavLinks: boolean; internalUrls?: { href: string; text: string }[]; externalUrls?: { href: string; text: string }[]; };
   images: { total: number; withoutAlt: number; withEmptyAlt: number; withoutDimensions: number; lazyLoaded: number; lazyAboveFold: number; clickableWithoutAlt: number; decorativeCount: number; largeImages: number; modernFormats: number; srcsetCount: number; imageSizeAnalysis?: { checked: number; largeCount: number; oldFormatCount: number; largeList: { src: string; size: string; type: string | null }[]; oldFormatList: { src: string; type: string | null }[] } };
   schema: { count: number; types: string[]; valid: number; invalid: number; details: SchemaItem[]; missingContext: number; hasWebSiteSearch: boolean; hasBreadcrumb: boolean; hasOrganization: boolean; hasFAQ: boolean; hasHowTo: boolean; };
   social: { og: { title: string | null; description: string | null; image: string | null; url: string | null; type: string | null; siteName: string | null; locale: string | null }; twitter: { card: string | null; site: string | null; creator: string | null; title: string | null; description: string | null; image: string | null }; isComplete: boolean; hasArticleTags: boolean; };
@@ -514,11 +514,11 @@ export default function SEOChecker() {
 
                 {/* Links Pie Chart */}
                 {(() => {
-                  // Combine all broken link sources: empty hrefs + HTTP 404 from sitemap + broken external links
+                  // Combine all broken link sources: empty hrefs + internal 404 + external 404
                   const emptyHrefs = results.links.brokenList?.length || 0;
-                  const sitemap404 = results.technical.siteTree?.issues?.filter((i: { status?: number }) => i.status === 404)?.length || 0;
-                  const brokenExternal = results.links.brokenExternalList?.filter((l: { error?: string }) => !l.error?.includes('Blocked'))?.length || 0;
-                  const brokenCount = emptyHrefs + sitemap404 + brokenExternal;
+                  const brokenInternal = results.links.brokenInternalList?.length || 0;
+                  const brokenExternal = results.links.brokenExternalList?.length || 0;
+                  const brokenCount = emptyHrefs + brokenInternal + brokenExternal;
                   return (
                     <div className="p-6 bg-gray-50 rounded-xl">
                       <h3 className="font-semibold text-gray-800 mb-4">Links Distribution</h3>
@@ -920,17 +920,24 @@ export default function SEOChecker() {
                     {results.technical.robotsTxt.found ? 'Found' : 'Not Found'}
                   </span>
                 </div>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  <CheckBadge ok={results.technical.robotsTxt.found} label="robots.txt exists" />
-                  <CheckBadge ok={!results.technical.robotsTxt.blocksAll} label={results.technical.robotsTxt.blocksAll ? 'BLOCKS ALL!' : 'Allows crawling'} />
-                  <CheckBadge ok={results.technical.robotsTxt.hasSitemap} label="Has sitemap reference" />
-                  <CheckBadge ok={results.technical.sitemap.found} label="Sitemap exists" />
-                </div>
-                {results.technical.robotsTxt.content && (
-                  <details className="mt-3">
-                    <summary className="cursor-pointer text-sm text-gray-600 hover:text-gray-800">View robots.txt content</summary>
-                    <pre className="mt-2 p-3 bg-gray-800 text-green-400 rounded text-xs overflow-auto max-h-48 whitespace-pre-wrap">{results.technical.robotsTxt.content}</pre>
-                  </details>
+                {results.technical.robotsTxt.found ? (
+                  <>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                      <CheckBadge ok={!results.technical.robotsTxt.blocksAll} label={results.technical.robotsTxt.blocksAll ? 'BLOCKS ALL!' : 'Allows crawling'} />
+                      <CheckBadge ok={results.technical.robotsTxt.hasSitemap} label="Has sitemap reference" />
+                      <CheckBadge ok={results.technical.sitemap.found} label="Sitemap exists" />
+                    </div>
+                    {results.technical.robotsTxt.content && (
+                      <details className="mt-3">
+                        <summary className="cursor-pointer text-sm text-gray-600 hover:text-gray-800">View robots.txt content</summary>
+                        <pre className="mt-2 p-3 bg-gray-800 text-green-400 rounded text-xs overflow-auto max-h-48 whitespace-pre-wrap">{results.technical.robotsTxt.content}</pre>
+                      </details>
+                    )}
+                  </>
+                ) : (
+                  <div className="text-sm text-gray-500">
+                    No robots.txt found. Consider adding one to control crawler access.
+                  </div>
                 )}
               </div>
 
@@ -1254,10 +1261,9 @@ export default function SEOChecker() {
             <Section title="Links" icon={Icons.Link} id="links">
               {(() => {
                 const emptyBroken = results.links.brokenList || [];
-                const http404Broken = results.technical.siteTree?.issues?.filter((i: { status?: number }) => i.status === 404) || [];
-                const brokenExternal = results.links.brokenExternalList?.filter((l: { error?: string }) => !l.error?.includes('Blocked')) || [];
-                const blockedLinks = results.links.brokenExternalList?.filter((l: { error?: string }) => l.error?.includes('Blocked')) || [];
-                const totalBrokenCount = emptyBroken.length + http404Broken.length + brokenExternal.length;
+                const brokenInternal = results.links.brokenInternalList || [];
+                const brokenExternal = results.links.brokenExternalList || [];
+                const totalBrokenCount = emptyBroken.length + brokenInternal.length + brokenExternal.length;
                 return (
                   <>
                     <div className="grid grid-cols-2 md:grid-cols-6 gap-4 mt-4">
@@ -1268,11 +1274,6 @@ export default function SEOChecker() {
                       <div className={`text-center p-4 rounded-lg ${results.links.genericAnchors > 0 ? 'bg-yellow-50' : 'bg-gray-50'}`}><div className={`text-2xl font-bold ${results.links.genericAnchors > 0 ? 'text-yellow-700' : 'text-gray-700'}`}>{results.links.genericAnchors}</div><div className="text-sm text-gray-600">Generic</div></div>
                       <div className="text-center p-4 bg-gray-50 rounded-lg"><div className="text-2xl font-bold text-gray-700">{results.links.nofollow}</div><div className="text-sm text-gray-600">Nofollow</div></div>
                     </div>
-                    {blockedLinks.length > 0 && (
-                      <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-sm text-yellow-700">
-                        ⚠️ {blockedLinks.length} link(s) blocked by anti-bot protection (LinkedIn, etc.) - cannot verify status
-                      </div>
-                    )}
                   </>
                 );
               })()}
@@ -1319,12 +1320,12 @@ export default function SEOChecker() {
                 </div>
               )}
 
-              {/* Broken Links - combine empty hrefs, HTTP 404 from sitemap, and broken external links */}
+              {/* Broken Links - combine empty hrefs, broken internal links, and broken external links */}
               {(() => {
                 const emptyBroken = results.links.brokenList || [];
-                const http404Broken = results.technical.siteTree?.issues?.filter((i: { status?: number }) => i.status === 404) || [];
-                const brokenExternal = results.links.brokenExternalList?.filter((l: { error?: string }) => !l.error?.includes('Blocked')) || [];
-                const totalBroken = emptyBroken.length + http404Broken.length + brokenExternal.length;
+                const brokenInternal = results.links.brokenInternalList || [];
+                const brokenExternal = results.links.brokenExternalList || [];
+                const totalBroken = emptyBroken.length + brokenInternal.length + brokenExternal.length;
                 if (totalBroken === 0) return null;
                 return (
                   <div className="mt-4">
@@ -1341,10 +1342,11 @@ export default function SEOChecker() {
                               {link.reason && <div className="text-xs text-red-600 mt-1">{link.reason}</div>}
                             </div>
                           ))}
-                          {http404Broken.map((issue: { url: string }, i: number) => (
-                            <div key={`http-${i}`} className="p-2 bg-white rounded text-sm border border-red-100">
-                              <code className="text-red-700 break-all">{issue.url}</code>
-                              <div className="text-xs text-red-600 mt-1">HTTP 404 - Page not found (sitemap)</div>
+                          {brokenInternal.map((link: { href: string; text?: string; status: number }, i: number) => (
+                            <div key={`int-${i}`} className="p-2 bg-white rounded text-sm border border-red-100">
+                              <code className="text-red-700 break-all">{link.href}</code>
+                              {link.text && <span className="text-gray-500 ml-2">- {link.text}</span>}
+                              <div className="text-xs text-red-600 mt-1">HTTP {link.status} - Internal link broken</div>
                             </div>
                           ))}
                           {brokenExternal.map((link: { href: string; text?: string; status: number }, i: number) => (
