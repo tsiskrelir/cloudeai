@@ -84,7 +84,8 @@ export async function runAudit(
 // ============================================
 
 function getCanonicalLinks(doc: Document): HTMLLinkElement[] {
-  return Array.from(doc.querySelectorAll('link[rel]')).filter((link) => {
+  const links = Array.from(doc.querySelectorAll<HTMLLinkElement>('link[rel]'));
+  return links.filter((link) => {
     const rel = link.getAttribute('rel');
     if (!rel) return false;
     return rel
@@ -988,11 +989,11 @@ function analyzeImages(doc: Document) {
   // Collect image URLs for size checking
   const imageUrls: { src: string; alt: string }[] = [];
   // Collect images without alt
-  const withoutAltList: { src: string; context: string }[] = [];
+  const withoutAltList: { src: string; context: string; elementId?: string | null; snippet?: string }[] = [];
   // Collect images without dimensions
-  const withoutDimensionsList: { src: string; alt: string }[] = [];
+  const withoutDimensionsList: { src: string; alt: string; elementId?: string | null; snippet?: string }[] = [];
   // Collect images with empty alt
-  const emptyAltList: { src: string; context: string }[] = [];
+  const emptyAltList: { src: string; context: string; elementId?: string | null; snippet?: string }[] = [];
   const imageList: {
     src: string;
     alt: string;
@@ -2216,7 +2217,7 @@ function collectIssues(data: any): AuditIssue[] {
 
   if (mobile && mobile.horizontalScrollRisk) {
     const fixedWidthExamples = mobile.fixedWidthList && mobile.fixedWidthList.length > 0
-      ? `\nProblematic elements:\n${mobile.fixedWidthList.map((item) => `• ${item.snippet || item.context} (${item.width})${item.elementId ? ` [id="${item.elementId}"]` : ' [id missing]'}`).join('\n')}`
+      ? `\nProblematic elements:\n${mobile.fixedWidthList.map((item: { width: string; context: string; elementId?: string | null; snippet?: string }) => `• ${item.snippet || item.context} (${item.width})${item.elementId ? ` [id="${item.elementId}"]` : ' [id missing]'}`).join('\n')}`
       : '';
     issues.push({ id: 'horizontal-scroll', severity: 'high', category: 'Mobile', issue: 'Horizontal scrolling detected on mobile', issueGe: 'Horizontal scrolling detected on mobile', location: 'Fixed-width elements', fix: 'Use max-width: 100% and responsive units', fixGe: 'Use max-width: 100% and responsive units', details: `${SEVERITY_PHRASES.high} Fixed-width elements cause horizontal scrolling. Use % or vw units.${fixedWidthExamples}` });
   }
