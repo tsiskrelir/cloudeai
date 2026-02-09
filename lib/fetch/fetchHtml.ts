@@ -863,7 +863,7 @@ export interface SiteTreeNode {
 export async function buildSiteTree(
   baseUrl: string,
   currentPageUrl: string,
-  maxUrls = 500
+  maxUrls = 1000
 ): Promise<{
   tree: SiteTreeNode;
   totalUrls: number;

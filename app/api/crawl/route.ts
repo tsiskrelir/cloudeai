@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
     const robotsValidation = robotsTxt ? validateRobotsTxt(robotsTxt) : null;
 
     // Parse sitemap
-    const sitemapData = await parseSitemap(baseUrl, 500);
+    const sitemapData = await parseSitemap(baseUrl, 1000);
 
     // Crawl site
     const crawlResult = await crawlSite(url, Math.min(maxPages, 50), Math.min(maxDepth, 4));

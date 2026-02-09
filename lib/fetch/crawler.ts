@@ -580,7 +580,7 @@ export interface SitemapData {
   errors: string[];
 }
 
-export async function parseSitemap(baseUrl: string, maxUrls: number = 500): Promise<SitemapData> {
+export async function parseSitemap(baseUrl: string, maxUrls: number = 1000): Promise<SitemapData> {
   const urls: SitemapUrl[] = [];
   const sitemapIndexUrls: string[] = [];
   const errors: string[] = [];

@@ -400,19 +400,47 @@ export default function SEOChecker() {
     return [...issues].sort((a, b) => severityOrder[a.severity] - severityOrder[b.severity]);
   };
 
-  const exportData = (format: 'json' | 'csv') => {
+  const exportData = (format: 'json' | 'csv' | 'html') => {
     if (!results) return;
     if (format === 'json') {
       const blob = new Blob([JSON.stringify(results, null, 2)], { type: 'application/json' });
       const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
       a.download = `seo-audit-${new Date().toISOString().split('T')[0]}.json`; a.click();
-    } else {
+    } else if (format === 'csv') {
       const rows = [['Category', 'Issue', 'Severity', 'Location', 'Fix']];
       results.issues.forEach(i => rows.push([i.category, i.issue, i.severity, i.location, i.fix]));
       const csv = rows.map(r => r.map(c => `"${c}"`).join(',')).join('\n');
       const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' });
       const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
       a.download = `seo-audit-${new Date().toISOString().split('T')[0]}.csv`; a.click();
+    } else {
+      const reportEl = document.getElementById('seo-audit-report');
+      if (!reportEl) return;
+      const styles = Array.from(document.styleSheets).map((sheet) => {
+        try {
+          return Array.from(sheet.cssRules).map((rule) => rule.cssText).join('\n');
+        } catch {
+          return '';
+        }
+      }).join('\n');
+      const html = `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SEO Audit Export</title>
+  <style>
+    body { margin: 0; background: #ffffff; }
+    ${styles}
+  </style>
+</head>
+<body>
+  ${reportEl.outerHTML}
+</body>
+</html>`;
+      const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+      a.download = `seo-audit-${new Date().toISOString().split('T')[0]}.html`; a.click();
     }
   };
 
@@ -437,7 +465,7 @@ export default function SEOChecker() {
   );
 
   return (
-    <div className="min-h-screen" style={{ background: `linear-gradient(135deg, ${COLORS.primary} 0%, ${COLORS.primaryLight} 50%, ${COLORS.primary} 100%)` }}>
+    <div id="seo-audit-report" className="min-h-screen" style={{ background: `linear-gradient(135deg, ${COLORS.primary} 0%, ${COLORS.primaryLight} 50%, ${COLORS.primary} 100%)` }}>
       {/* Header */}
       <div style={{ background: `linear-gradient(90deg, ${COLORS.primary} 0%, ${COLORS.primaryLight} 50%, #2a4a9a 100%)` }} className="text-white">
         <div className="max-w-6xl mx-auto px-6 py-6">
@@ -604,6 +632,7 @@ export default function SEOChecker() {
               <div className="flex gap-2 mt-6">
                 <button onClick={() => exportData('json')} className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg flex items-center gap-2 text-sm"><Icons.Download /> Export JSON</button>
                 <button onClick={() => exportData('csv')} className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg flex items-center gap-2 text-sm"><Icons.Download /> Export CSV</button>
+                <button onClick={() => exportData('html')} className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg flex items-center gap-2 text-sm"><Icons.Download /> Export HTML</button>
               </div>
             </Section>
 
