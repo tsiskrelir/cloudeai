@@ -1138,6 +1138,36 @@ function analyzeImages(doc: Document) {
 // SCHEMA ANALYSIS
 // ============================================
 
+const normalizeSchemaType = (typeValue: unknown): string[] => {
+  if (!typeValue) return [];
+  if (Array.isArray(typeValue)) {
+    return typeValue.flatMap((value) => normalizeSchemaType(value));
+  }
+  if (typeof typeValue === 'string') {
+    const trimmed = typeValue.trim();
+    if (!trimmed) return [];
+    const withoutUrl = trimmed.replace(/^https?:\/\/schema\.org\//i, '');
+    const withoutNamespace = withoutUrl.includes(':') ? withoutUrl.split(':').pop() || withoutUrl : withoutUrl;
+    const normalized = withoutNamespace.split('/').pop() || withoutNamespace;
+    return [normalized];
+  }
+  return [];
+};
+
+const extractSchemaItems = (data: unknown): unknown[] => {
+  if (!data) return [];
+  if (Array.isArray(data)) {
+    return data.flatMap((entry) => extractSchemaItems(entry));
+  }
+  if (typeof data === 'object' && data !== null && '@graph' in data) {
+    const graph = (data as { '@graph'?: unknown })['@graph'];
+    if (Array.isArray(graph)) {
+      return graph;
+    }
+  }
+  return [data];
+};
+
 function analyzeSchema(doc: Document) {
   const schemaScripts = doc.querySelectorAll('script[type="application/ld+json"]');
   const schemas: SchemaItem[] = [];
@@ -1147,16 +1177,32 @@ function analyzeSchema(doc: Document) {
   schemaScripts.forEach((script, index) => {
     try {
       const data = JSON.parse(script.textContent || '');
-      const items = Array.isArray(data) ? data : [data];
+      const items = extractSchemaItems(data);
+      const rootContext = typeof data === 'object' && data !== null ? (data as { '@context'?: unknown })['@context'] : undefined;
       items.forEach((item, itemIndex) => {
-        const type = item['@type'] || 'Unknown';
-        types.push(type);
+        const itemRecord = item as Record<string, unknown>;
+        const normalizedTypes = normalizeSchemaType(itemRecord['@type']);
+        const typeLabel = normalizedTypes.length ? normalizedTypes.join(', ') : 'Unknown';
+        normalizedTypes.forEach((type) => types.push(type));
         const schemaIssues: string[] = [];
-        if (!item['@context']) { missingContext++; schemaIssues.push('Missing @context'); }
-        const requirements = PATTERNS.SCHEMA_REQUIREMENTS[type];
-        if (requirements?.required) requirements.required.forEach((field) => { if (!item[field]) schemaIssues.push(`Missing: ${field}`); });
-        if (requirements?.needsOneOf && !requirements.needsOneOf.some((f) => item[f])) schemaIssues.push(`Needs one of: ${requirements.needsOneOf.join(', ')}`);
-        schemas.push({ index: `${index + 1}${items.length > 1 ? `.${itemIndex + 1}` : ''}`, type, valid: schemaIssues.length === 0, issues: schemaIssues });
+        const hasContext = !!itemRecord['@context'] || !!rootContext;
+        if (!hasContext) { missingContext++; schemaIssues.push('Missing @context'); }
+        const requirementsList = normalizedTypes
+          .map((type) => PATTERNS.SCHEMA_REQUIREMENTS[type])
+          .filter(Boolean);
+        if (requirementsList.length > 0) {
+          const requiredFields = new Set<string>();
+          const needsOneOf = new Set<string>();
+          requirementsList.forEach((requirements) => {
+            requirements?.required?.forEach((field) => requiredFields.add(field));
+            requirements?.needsOneOf?.forEach((field) => needsOneOf.add(field));
+          });
+          requiredFields.forEach((field) => { if (!itemRecord[field]) schemaIssues.push(`Missing: ${field}`); });
+          if (needsOneOf.size > 0 && !Array.from(needsOneOf).some((field) => itemRecord[field])) {
+            schemaIssues.push(`Needs one of: ${Array.from(needsOneOf).join(', ')}`);
+          }
+        }
+        schemas.push({ index: `${index + 1}${items.length > 1 ? `.${itemIndex + 1}` : ''}`, type: typeLabel, valid: schemaIssues.length === 0, issues: schemaIssues });
       });
     } catch { invalid++; schemas.push({ index: `${index + 1}`, type: 'Invalid JSON', valid: false, issues: ['Invalid JSON syntax'] }); }
   });
