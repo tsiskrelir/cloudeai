@@ -252,6 +252,9 @@ export interface LinkData {
 
   brokenExternalLinks?: number;
   brokenExternalList?: BrokenLinkItem[];
+
+  brokenInternalLinks?: number;
+  brokenInternalList?: BrokenLinkItem[];
 }
 
 /* ============================================================================
