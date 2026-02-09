@@ -850,10 +850,12 @@ function analyzeLinks(doc: Document, sourceUrl: string) {
   const links = Array.from(doc.querySelectorAll('a[href]'));
   let sourceHost = '';
   let baseUrl = '';
+  let sourceProtocol = '';
   try {
     const parsed = new URL(sourceUrl);
     sourceHost = parsed.hostname;
     baseUrl = `${parsed.protocol}//${parsed.host}`;
+    sourceProtocol = parsed.protocol;
   } catch {}
 
   let internal = 0, external = 0, broken = 0, genericAnchors = 0, nofollow = 0, sponsored = 0, ugc = 0, unsafeExternalCount = 0;
@@ -863,12 +865,25 @@ function analyzeLinks(doc: Document, sourceUrl: string) {
   const externalUrls: { href: string; text: string }[] = []; // For 404 checking
   const paginationUrls: { href: string; text: string }[] = [];
   const paginationSet = new Set<string>();
+  const normalizeProtocolRelativeUrl = (href: string) => {
+    if (!href.startsWith('//')) return href;
+    const protocol = sourceProtocol || 'https:';
+    return `${protocol}${href}`;
+  };
 
   const resolveInternalUrl = (href: string): string => {
     if (href.startsWith('http')) {
       try {
         const linkHost = new URL(href).hostname;
         if (linkHost === sourceHost) return href;
+      } catch {}
+      return '';
+    }
+    if (href.startsWith('//')) {
+      try {
+        const normalizedHref = normalizeProtocolRelativeUrl(href);
+        const linkHost = new URL(normalizedHref).hostname;
+        if (linkHost === sourceHost) return normalizedHref;
       } catch {}
       return '';
     }
@@ -900,17 +915,18 @@ function analyzeLinks(doc: Document, sourceUrl: string) {
     // Track internal vs external and collect full internal URLs
     let isInternal = false;
     let fullUrl = '';
-    if (href.startsWith('http')) {
+    if (href.startsWith('http') || href.startsWith('//')) {
+      const normalizedHref = normalizeProtocolRelativeUrl(href);
       try {
-        const linkHost = new URL(href).hostname;
+        const linkHost = new URL(normalizedHref).hostname;
         if (linkHost === sourceHost) {
           isInternal = true;
-          fullUrl = href;
+          fullUrl = normalizedHref;
         } else {
           external++;
           // Collect external URLs for 404 checking and display
           if (externalUrls.length < 50) {
-            externalUrls.push({ href, text: text.substring(0, 80) });
+            externalUrls.push({ href: normalizedHref, text: text.substring(0, 80) });
           }
         }
       } catch {}
