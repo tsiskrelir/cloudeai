@@ -313,7 +313,7 @@ export default function SEOChecker() {
   const [currentUrlIndex, setCurrentUrlIndex] = useState(0);
   const [totalUrls, setTotalUrls] = useState(0);
 
-  const allSections = ['overview', 'issues', 'passed', 'sitemap', 'technical', 'content', 'security', 'international', 'links', 'images', 'schema', 'social', 'platform', 'accessibility', 'dom', 'performance', 'ai', 'trust', 'mobile', 'robots'];
+  const allSections = ['overview', 'issues', 'passed', 'sitemap', 'technical', 'content', 'security', 'international', 'links', 'images', 'schema', 'social', 'platform', 'accessibility', 'dom', 'performance', 'ai', 'trust', 'mobile', 'robots', 'loaded-files'];
   const imageList = results?.images.imageList || [];
   const imagesWithoutAlt = imageList.filter((img) => !img.hasAlt);
   const imagesWithoutDimensions = imageList.filter((img) => !img.hasDimensions);
@@ -400,7 +400,7 @@ export default function SEOChecker() {
     return [...issues].sort((a, b) => severityOrder[a.severity] - severityOrder[b.severity]);
   };
 
-  const exportData = (format: 'json' | 'csv' | 'html') => {
+  const exportData = (format: 'json' | 'csv' | 'html' | 'pdf') => {
     if (!results) return;
     if (format === 'json') {
       const blob = new Blob([JSON.stringify(results, null, 2)], { type: 'application/json' });
@@ -438,10 +438,25 @@ export default function SEOChecker() {
   ${reportEl.outerHTML}
 </body>
 </html>`;
-      const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
-      const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-      a.download = `seo-audit-${new Date().toISOString().split('T')[0]}.html`; a.click();
+      if (format === 'pdf') {
+        const printWindow = window.open('', '_blank');
+        if (!printWindow) return;
+        printWindow.document.write(html);
+        printWindow.document.close();
+        printWindow.focus();
+        setTimeout(() => {
+          printWindow.print();
+        }, 300);
+      } else {
+        const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+        const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+        a.download = `seo-audit-${new Date().toISOString().split('T')[0]}.html`; a.click();
+      }
     }
+  };
+
+  const toggleAllSections = (expandAll: boolean) => {
+    setExpanded(allSections.reduce((acc, sectionId) => ({ ...acc, [sectionId]: expandAll }), {}));
   };
 
   const getScoreColor = (s: number) => s >= 90 ? '#10b981' : s >= 70 ? '#f59e0b' : s >= 50 ? '#f97316' : '#ef4444';
@@ -467,18 +482,21 @@ export default function SEOChecker() {
   return (
     <div id="seo-audit-report" className="min-h-screen" style={{ background: `linear-gradient(135deg, ${COLORS.primary} 0%, ${COLORS.primaryLight} 50%, ${COLORS.primary} 100%)` }}>
       {/* Header */}
-      <div style={{ background: `linear-gradient(90deg, ${COLORS.primary} 0%, ${COLORS.primaryLight} 50%, #2a4a9a 100%)` }} className="text-white">
+      <div style={{ background: `linear-gradient(90deg, #e5e7eb 0%, ${COLORS.secondary} 55%, ${COLORS.primaryLight} 100%)` }} className="text-white">
         <div className="max-w-6xl mx-auto px-6 py-6">
-          <div className="flex items-center gap-4">
-            <img
-              src="https://www.web-seo.pro/wp-content/uploads/2024/07/webseologo.png"
-              alt="Web & SEO logo"
-              className="w-12 h-12 object-contain"
-            />
-            <div>
-              <h1 className="text-3xl font-bold" style={{ color: COLORS.accent }}>SEO Audit Tool</h1>
-              <p style={{ color: COLORS.secondary }} className="mt-1">Complete On-Page & Technical SEO Analysis</p>
+          <div className="grid grid-cols-[auto_1fr_auto] items-center gap-4">
+            <div className="flex items-center justify-start">
+              <img
+                src="https://www.web-seo.pro/wp-content/uploads/2024/07/webseologo.png"
+                alt="Web & SEO logo"
+                className="w-16 h-16 object-contain"
+              />
             </div>
+            <div className="text-center">
+              <h1 className="text-3xl font-bold" style={{ color: COLORS.primary }}>SEO Audit Tool</h1>
+              <p style={{ color: COLORS.primaryLight }} className="mt-1">Complete On-Page & Technical SEO Analysis</p>
+            </div>
+            <div className="w-12 h-12" aria-hidden="true" />
           </div>
         </div>
       </div>
@@ -525,6 +543,14 @@ export default function SEOChecker() {
               </div>
             </div>
           )}
+
+          <div className="mt-4 flex justify-center gap-3">
+            <button onClick={() => toggleAllSections(true)} className="px-4 py-2 rounded-lg font-medium text-sm transition-opacity hover:opacity-90" style={{ background: 'linear-gradient(90deg, #1d4ed8 0%, #ff00ff 100%)', color: '#ffffff' }}>Open all sections</button>
+            <button onClick={() => toggleAllSections(false)} className="px-4 py-2 rounded-lg font-medium text-sm transition-opacity hover:opacity-90" style={{ background: 'linear-gradient(90deg, #1d4ed8 0%, #ff00ff 100%)', color: '#ffffff' }}>Collapse all sections</button>
+          </div>
+          <div className="mt-2 text-center text-sm" style={{ color: COLORS.primary }}>
+            Use this toggle to quickly expand or collapse every report block.
+          </div>
 
           {/* Multi-URL Progress */}
           {loading && totalUrls > 1 && (
@@ -642,6 +668,7 @@ export default function SEOChecker() {
                 <button onClick={() => exportData('json')} className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg flex items-center gap-2 text-sm"><Icons.Download /> Export JSON</button>
                 <button onClick={() => exportData('csv')} className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg flex items-center gap-2 text-sm"><Icons.Download /> Export CSV</button>
                 <button onClick={() => exportData('html')} className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg flex items-center gap-2 text-sm"><Icons.Download /> Export HTML</button>
+                <button onClick={() => exportData('pdf')} className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg flex items-center gap-2 text-sm"><Icons.Download /> Export PDF</button>
               </div>
             </Section>
 
@@ -1848,8 +1875,17 @@ export default function SEOChecker() {
       </div>
 
       {/* Footer */}
-      <div className="text-center py-8 text-white/60 text-sm">
-        SEO Audit Tool • Complete Technical & On-Page Analysis • {new Date().getFullYear()}
+      <div className="py-8 flex flex-col items-center gap-4">
+        <a
+          href="mailto:tsiskrelir@gmail.com"
+          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg font-medium transition-opacity hover:opacity-90"
+          style={{ backgroundColor: '#ff00ff', color: '#ffffff' }}
+        >
+          Book your SEO optimisation consultation
+        </a>
+        <div className="text-center text-white/60 text-sm">
+          SEO Audit Tool • Complete Technical & On-Page Analysis • {new Date().getFullYear()}
+        </div>
       </div>
     </div>
   );
