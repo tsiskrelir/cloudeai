@@ -469,8 +469,17 @@ export default function SEOChecker() {
       {/* Header */}
       <div style={{ background: `linear-gradient(90deg, ${COLORS.primary} 0%, ${COLORS.primaryLight} 50%, #2a4a9a 100%)` }} className="text-white">
         <div className="max-w-6xl mx-auto px-6 py-6">
-          <h1 className="text-3xl font-bold" style={{ color: COLORS.accent }}>SEO Audit Tool</h1>
-          <p style={{ color: COLORS.secondary }} className="mt-1">Complete On-Page & Technical SEO Analysis</p>
+          <div className="flex items-center gap-4">
+            <img
+              src="https://www.web-seo.pro/wp-content/uploads/2024/07/webseologo.png"
+              alt="Web & SEO logo"
+              className="w-12 h-12 object-contain"
+            />
+            <div>
+              <h1 className="text-3xl font-bold" style={{ color: COLORS.accent }}>SEO Audit Tool</h1>
+              <p style={{ color: COLORS.secondary }} className="mt-1">Complete On-Page & Technical SEO Analysis</p>
+            </div>
+          </div>
         </div>
       </div>
 
