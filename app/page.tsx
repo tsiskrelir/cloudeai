@@ -83,7 +83,7 @@ interface AuditResult {
   };
   international: { hreflangs: HreflangTag[]; hasXDefault: boolean; hasSelfReference: boolean; canonicalInHreflang: boolean; langMatchesHreflang: boolean; issues: string[]; };
   content: { headings: { h1: string[]; h2: string[]; h3: string[]; h4: string[]; h5: string[]; h6: string[] }; wordCount: number; characterCount: number; sentenceCount: number; paragraphCount: number; readingTime: number; titleH1Duplicate: boolean; duplicateParagraphs: number; aiScore: number; aiPhrases: string[]; readability: ReadabilityData; keywordDensity: KeywordDensity[]; };
-  links: { total: number; internal: number; external: number; broken: number; brokenList: { href: string; text: string; reason?: string; htmlTag?: string }[]; brokenExternalLinks?: number; brokenExternalList?: { href: string; text: string; status: number; error?: string }[]; brokenInternalLinks?: number; brokenInternalList?: { href: string; text: string; status: number; error?: string }[]; genericAnchors: number; genericAnchorsList: { text: string; href: string }[]; nofollow: number; sponsored: number; ugc: number; unsafeExternalCount: number; hasFooterLinks: boolean; hasNavLinks: boolean; internalUrls?: { href: string; text: string }[]; externalUrls?: { href: string; text: string }[]; paginationUrls?: { href: string; text: string }[]; };
+  links: { total: number; internal: number; external: number; broken: number; brokenList: { href: string; text: string; reason?: string; htmlTag?: string }[]; brokenExternalLinks?: number; brokenExternalList?: { href: string; text: string; status: number; error?: string }[]; brokenInternalLinks?: number; brokenInternalList?: { href: string; text: string; status: number; error?: string }[]; redirectLinks?: number; redirectList?: { href: string; text: string; status: number; location: string }[]; genericAnchors: number; genericAnchorsList: { text: string; href: string }[]; nofollow: number; sponsored: number; ugc: number; unsafeExternalCount: number; hasFooterLinks: boolean; hasNavLinks: boolean; internalUrls?: { href: string; text: string }[]; externalUrls?: { href: string; text: string }[]; paginationUrls?: { href: string; text: string }[]; };
   images: {
     total: number;
     withoutAlt: number;
@@ -632,6 +632,7 @@ export default function SEOChecker() {
                   const brokenInternal = results.links.brokenInternalList?.length || 0;
                   const brokenExternal = results.links.brokenExternalList?.length || 0;
                   const brokenCount = emptyHrefs + brokenInternal + brokenExternal;
+                  const redirectedCount = results.links.redirectList?.length || 0;
                   return (
                     <div className="p-6 bg-gray-50 rounded-xl">
                       <h3 className="font-semibold text-gray-800 mb-4">Links Distribution</h3>
@@ -640,11 +641,13 @@ export default function SEOChecker() {
                           { label: 'Internal', value: results.links.internal, color: COLORS.accent },
                           { label: 'External', value: results.links.external, color: COLORS.secondary },
                           { label: 'Broken', value: brokenCount, color: '#ef4444' },
+                          { label: 'Redirected', value: redirectedCount, color: '#f97316' },
                         ]} size={100} />
                         <div className="space-y-2 text-sm">
                           <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full" style={{ backgroundColor: COLORS.accent }} /><span>Internal: {results.links.internal}</span></div>
                           <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full" style={{ backgroundColor: COLORS.secondary }} /><span>External: {results.links.external}</span></div>
                           <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-red-500" /><span>Broken: {brokenCount}</span></div>
+                          <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-orange-500" /><span>Redirected: {redirectedCount}</span></div>
                         </div>
                       </div>
                     </div>
@@ -703,6 +706,19 @@ export default function SEOChecker() {
                                     'Fix or remove this link'
                                   }
                                 </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Show redirect links list (301/302) */}
+                        {issue.id === 'redirect-links' && results.links.redirectList && results.links.redirectList.length > 0 && (
+                          <div className="mt-2 p-2 bg-white/30 rounded text-xs space-y-2">
+                            <div className="font-medium">Redirected Links (301/302):</div>
+                            {results.links.redirectList.slice(0, 8).map((link: { href: string; text: string; status: number; location: string }, j: number) => (
+                              <div key={j} className="p-2 bg-white/40 rounded border-l-2 border-orange-500">
+                                <code className="block bg-gray-800 text-orange-300 p-2 rounded text-xs overflow-x-auto whitespace-pre-wrap break-all">{`<a href="${link.href}">${link.text || '(no text)'}<\/a>`}</code>
+                                <div className="mt-1 text-orange-700">HTTP {link.status} → {link.location}</div>
                               </div>
                             ))}
                           </div>
@@ -1473,14 +1489,16 @@ export default function SEOChecker() {
                 const emptyBroken = results.links.brokenList || [];
                 const brokenInternal = results.links.brokenInternalList || [];
                 const brokenExternal = results.links.brokenExternalList || [];
+                const redirectedLinks = results.links.redirectList || [];
                 const totalBrokenCount = emptyBroken.length + brokenInternal.length + brokenExternal.length;
                 return (
                   <>
-                    <div className="grid grid-cols-2 md:grid-cols-6 gap-4 mt-4">
+                    <div className="grid grid-cols-2 md:grid-cols-7 gap-4 mt-4">
                       <div className="text-center p-4 rounded-lg" style={{ backgroundColor: `${COLORS.primary}10` }}><div className="text-2xl font-bold" style={{ color: COLORS.primary }}>{results.links.total}</div><div className="text-sm text-gray-600">Total</div></div>
                       <div className="text-center p-4 bg-green-50 rounded-lg"><div className="text-2xl font-bold text-green-700">{results.links.internal}</div><div className="text-sm text-green-600">Internal</div></div>
                       <div className="text-center p-4 rounded-lg" style={{ backgroundColor: `${COLORS.secondary}15` }}><div className="text-2xl font-bold" style={{ color: COLORS.primary }}>{results.links.external}</div><div className="text-sm text-gray-600">External</div></div>
                       <div className={`text-center p-4 rounded-lg ${totalBrokenCount > 0 ? 'bg-red-50' : 'bg-gray-50'}`}><div className={`text-2xl font-bold ${totalBrokenCount > 0 ? 'text-red-700' : 'text-gray-700'}`}>{totalBrokenCount}</div><div className="text-sm text-gray-600">Broken</div></div>
+                      <div className={`text-center p-4 rounded-lg ${redirectedLinks.length > 0 ? 'bg-orange-50' : 'bg-gray-50'}`}><div className={`text-2xl font-bold ${redirectedLinks.length > 0 ? 'text-orange-700' : 'text-gray-700'}`}>{redirectedLinks.length}</div><div className="text-sm text-gray-600">Redirected</div></div>
                       <div className={`text-center p-4 rounded-lg ${results.links.genericAnchors > 0 ? 'bg-yellow-50' : 'bg-gray-50'}`}><div className={`text-2xl font-bold ${results.links.genericAnchors > 0 ? 'text-yellow-700' : 'text-gray-700'}`}>{results.links.genericAnchors}</div><div className="text-sm text-gray-600">Generic</div></div>
                       <div className="text-center p-4 bg-gray-50 rounded-lg"><div className="text-2xl font-bold text-gray-700">{results.links.nofollow}</div><div className="text-sm text-gray-600">Nofollow</div></div>
                     </div>
@@ -1522,6 +1540,28 @@ export default function SEOChecker() {
                           <div key={i} className="text-sm">
                             <a href={link.href} target="_blank" rel="noopener noreferrer" className="hover:underline break-all" style={{ color: COLORS.primary }}>{link.href}</a>
                             {link.text && <span className="text-gray-500 ml-2">({link.text})</span>}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </details>
+                </div>
+              )}
+
+              {/* Redirected Links (301/302) */}
+              {results.links.redirectList && results.links.redirectList.length > 0 && (
+                <div className="mt-4">
+                  <details className="group" open>
+                    <summary className="cursor-pointer font-medium text-orange-800 hover:text-orange-600">
+                      Redirected Links ({results.links.redirectList.length}) <span className="text-gray-400 text-sm">click to expand/collapse</span>
+                    </summary>
+                    <div className="mt-2 p-4 bg-orange-50 border border-orange-200 rounded-lg max-h-64 overflow-auto">
+                      <div className="space-y-2">
+                        {results.links.redirectList.map((link: { href: string; text?: string; status: number; location: string }, i: number) => (
+                          <div key={`redirect-${i}`} className="p-2 bg-white rounded text-sm border border-orange-100">
+                            <code className="text-orange-700 break-all">{link.href}</code>
+                            {link.text && <span className="text-gray-500 ml-2">- {link.text}</span>}
+                            <div className="text-xs text-orange-600 mt-1">HTTP {link.status} → {link.location}</div>
                           </div>
                         ))}
                       </div>
@@ -1878,8 +1918,8 @@ export default function SEOChecker() {
       <div className="py-8 flex flex-col items-center gap-4">
         <a
           href="mailto:tsiskrelir@gmail.com"
-          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg font-medium transition-opacity hover:opacity-90"
-          style={{ backgroundColor: '#ff00ff', color: '#ffffff' }}
+          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg font-bold transition-opacity hover:opacity-90"
+          style={{ background: 'linear-gradient(90deg, #1d4ed8 0%, #ff00ff 100%)', color: '#ffffff' }}
         >
           Book your SEO optimisation consultation
         </a>
