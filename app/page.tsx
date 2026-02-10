@@ -545,8 +545,8 @@ export default function SEOChecker() {
           )}
 
           <div className="mt-4 flex justify-center gap-3">
-            <button onClick={() => toggleAllSections(true)} className="px-8 py-3 font-semibold rounded-xl disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center gap-2 transition-all hover:opacity-90" style={{ backgroundColor: COLORS.accent, color: COLORS.primary }}>Open all sections</button>
-            <button onClick={() => toggleAllSections(false)} className="px-8 py-3 font-semibold rounded-xl disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center gap-2 transition-all hover:opacity-90" style={{ backgroundColor: COLORS.accent, color: COLORS.primary }}>Collapse all sections</button>
+            <button onClick={() => toggleAllSections(true)} className="px-4 py-2 rounded-lg font-medium text-sm transition-opacity hover:opacity-90" style={{ background: 'linear-gradient(90deg, #1d4ed8 0%, #ff00ff 100%)', color: '#ffffff' }}>Open all sections</button>
+            <button onClick={() => toggleAllSections(false)} className="px-4 py-2 rounded-lg font-medium text-sm transition-opacity hover:opacity-90" style={{ background: 'linear-gradient(90deg, #1d4ed8 0%, #ff00ff 100%)', color: '#ffffff' }}>Collapse all sections</button>
           </div>
           <div className="mt-2 text-center text-sm" style={{ color: COLORS.primary }}>
             Use this toggle to quickly expand or collapse every report block.
