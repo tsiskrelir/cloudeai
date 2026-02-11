@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 
 // Types matching the updated audit system
 interface AuditIssue {
@@ -83,7 +83,7 @@ interface AuditResult {
   };
   international: { hreflangs: HreflangTag[]; hasXDefault: boolean; hasSelfReference: boolean; canonicalInHreflang: boolean; langMatchesHreflang: boolean; issues: string[]; };
   content: { headings: { h1: string[]; h2: string[]; h3: string[]; h4: string[]; h5: string[]; h6: string[] }; wordCount: number; characterCount: number; sentenceCount: number; paragraphCount: number; readingTime: number; titleH1Duplicate: boolean; duplicateParagraphs: number; aiScore: number; aiPhrases: string[]; readability: ReadabilityData; keywordDensity: KeywordDensity[]; };
-  links: { total: number; internal: number; external: number; broken: number; brokenList: { href: string; text: string; reason?: string; htmlTag?: string }[]; brokenExternalLinks?: number; brokenExternalList?: { href: string; text: string; status: number; error?: string }[]; brokenInternalLinks?: number; brokenInternalList?: { href: string; text: string; status: number; error?: string }[]; genericAnchors: number; genericAnchorsList: { text: string; href: string }[]; nofollow: number; sponsored: number; ugc: number; unsafeExternalCount: number; hasFooterLinks: boolean; hasNavLinks: boolean; internalUrls?: { href: string; text: string }[]; externalUrls?: { href: string; text: string }[]; paginationUrls?: { href: string; text: string }[]; };
+  links: { total: number; internal: number; external: number; broken: number; brokenList: { href: string; text: string; reason?: string; htmlTag?: string }[]; brokenExternalLinks?: number; brokenExternalList?: { href: string; text: string; status: number; error?: string }[]; brokenInternalLinks?: number; brokenInternalList?: { href: string; text: string; status: number; error?: string }[]; redirectLinks?: number; redirectList?: { href: string; text: string; status: number; location: string }[]; genericAnchors: number; genericAnchorsList: { text: string; href: string }[]; nofollow: number; sponsored: number; ugc: number; unsafeExternalCount: number; hasFooterLinks: boolean; hasNavLinks: boolean; internalUrls?: { href: string; text: string }[]; externalUrls?: { href: string; text: string }[]; paginationUrls?: { href: string; text: string }[]; };
   images: {
     total: number;
     withoutAlt: number;
@@ -312,8 +312,9 @@ export default function SEOChecker() {
   const [multiResults, setMultiResults] = useState<AuditResult[]>([]);
   const [currentUrlIndex, setCurrentUrlIndex] = useState(0);
   const [totalUrls, setTotalUrls] = useState(0);
+  const [auditHistory, setAuditHistory] = useState<AuditResult[]>([]);
 
-  const allSections = ['overview', 'issues', 'passed', 'sitemap', 'technical', 'content', 'security', 'international', 'links', 'images', 'schema', 'social', 'platform', 'accessibility', 'dom', 'performance', 'ai', 'trust', 'mobile', 'robots'];
+  const allSections = ['overview', 'issues', 'passed', 'sitemap', 'technical', 'content', 'security', 'international', 'links', 'images', 'schema', 'social', 'platform', 'accessibility', 'dom', 'performance', 'ai', 'trust', 'mobile', 'robots', 'loaded-files'];
   const imageList = results?.images.imageList || [];
   const imagesWithoutAlt = imageList.filter((img) => !img.hasAlt);
   const imagesWithoutDimensions = imageList.filter((img) => !img.hasDimensions);
@@ -361,6 +362,7 @@ export default function SEOChecker() {
         setMultiResults(results);
         setResults(results[0]); // Show first result by default
         setExpanded(allSections.reduce((acc, s) => ({ ...acc, [s]: true }), {}));
+        saveToHistory(results);
       } else {
         // HTML mode - single page
         const res = await fetch('/api/audit', {
@@ -373,6 +375,7 @@ export default function SEOChecker() {
         setResults(data);
         setMultiResults([data]);
         setExpanded(allSections.reduce((acc, s) => ({ ...acc, [s]: true }), {}));
+        saveToHistory([data]);
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'An error occurred');
@@ -400,7 +403,7 @@ export default function SEOChecker() {
     return [...issues].sort((a, b) => severityOrder[a.severity] - severityOrder[b.severity]);
   };
 
-  const exportData = (format: 'json' | 'csv' | 'html') => {
+  const exportData = (format: 'json' | 'csv' | 'html' | 'pdf') => {
     if (!results) return;
     if (format === 'json') {
       const blob = new Blob([JSON.stringify(results, null, 2)], { type: 'application/json' });
@@ -438,11 +441,63 @@ export default function SEOChecker() {
   ${reportEl.outerHTML}
 </body>
 </html>`;
-      const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
-      const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-      a.download = `seo-audit-${new Date().toISOString().split('T')[0]}.html`; a.click();
+      if (format === 'pdf') {
+        const printWindow = window.open('', '_blank');
+        if (!printWindow) return;
+        printWindow.document.write(html);
+        printWindow.document.close();
+        printWindow.focus();
+        setTimeout(() => {
+          printWindow.print();
+        }, 300);
+      } else {
+        const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+        const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+        a.download = `seo-audit-${new Date().toISOString().split('T')[0]}.html`; a.click();
+      }
     }
   };
+
+  const toggleAllSections = (expandAll: boolean) => {
+    setExpanded(allSections.reduce((acc, sectionId) => ({ ...acc, [sectionId]: expandAll }), {}));
+  };
+
+  const saveToHistory = (items: AuditResult[]) => {
+    if (!items.length) return;
+    setAuditHistory((prev) => {
+      const merged = [...items, ...prev].filter((item, index, arr) =>
+        index === arr.findIndex((x) => x.url === item.url && x.timestamp === item.timestamp)
+      ).slice(0, 25);
+      localStorage.setItem('seo-audit-history', JSON.stringify(merged));
+      return merged;
+    });
+  };
+
+  const loadHistoryEntry = (entry: AuditResult) => {
+    setResults(entry);
+    setMultiResults([entry]);
+    toggleAllSections(true);
+    setError('');
+  };
+
+  const clearHistory = () => {
+    setAuditHistory([]);
+    localStorage.removeItem('seo-audit-history');
+  };
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('seo-audit-history');
+      if (raw) {
+        const parsed = JSON.parse(raw) as AuditResult[];
+        if (Array.isArray(parsed)) {
+          setAuditHistory(parsed.slice(0, 25));
+        }
+      }
+    } catch {
+      setAuditHistory([]);
+    }
+  }, []);
 
   const getScoreColor = (s: number) => s >= 90 ? '#10b981' : s >= 70 ? '#f59e0b' : s >= 50 ? '#f97316' : '#ef4444';
   const getSeverityStyle = (sev: string) => ({ critical: 'bg-red-100 text-red-800 border-red-200', high: 'bg-orange-100 text-orange-800 border-orange-200', medium: 'bg-yellow-100 text-yellow-800 border-yellow-200', low: 'bg-blue-100 text-blue-800 border-blue-200' }[sev] || 'bg-gray-100');
@@ -467,18 +522,23 @@ export default function SEOChecker() {
   return (
     <div id="seo-audit-report" className="min-h-screen" style={{ background: `linear-gradient(135deg, ${COLORS.primary} 0%, ${COLORS.primaryLight} 50%, ${COLORS.primary} 100%)` }}>
       {/* Header */}
-      <div style={{ background: `linear-gradient(90deg, ${COLORS.primary} 0%, ${COLORS.primaryLight} 50%, #2a4a9a 100%)` }} className="text-white">
+      <div style={{ background: `linear-gradient(90deg, #e5e7eb 0%, ${COLORS.secondary} 55%, ${COLORS.primaryLight} 100%)` }} className="text-white">
         <div className="max-w-6xl mx-auto px-6 py-6">
-          <div className="flex items-center gap-4">
-            <img
-              src="https://www.web-seo.pro/wp-content/uploads/2024/07/webseologo.png"
-              alt="Web & SEO logo"
-              className="w-12 h-12 object-contain"
-            />
-            <div>
-              <h1 className="text-3xl font-bold" style={{ color: COLORS.accent }}>SEO Audit Tool</h1>
-              <p style={{ color: COLORS.secondary }} className="mt-1">Complete On-Page & Technical SEO Analysis</p>
+          <div className="grid grid-cols-[auto_1fr_auto] items-center gap-4">
+            <div className="flex items-center justify-start">
+              <a href="https://www.web-seo.pro/" target="_blank" rel="noopener noreferrer" aria-label="Web & SEO homepage">
+                <img
+                  src="https://www.web-seo.pro/wp-content/uploads/2024/07/webseologo.png"
+                  alt="Web & SEO logo"
+                  className="w-16 h-16 object-contain"
+                />
+              </a>
             </div>
+            <div className="text-center">
+              <h1 className="text-3xl font-bold" style={{ color: COLORS.primary }}>SEO Audit Tool</h1>
+              <p style={{ color: COLORS.primaryLight }} className="mt-1">Complete On-Page & Technical SEO Analysis</p>
+            </div>
+            <div className="w-12 h-12" aria-hidden="true" />
           </div>
         </div>
       </div>
@@ -526,6 +586,14 @@ export default function SEOChecker() {
             </div>
           )}
 
+          <div className="mt-4 flex justify-center gap-3">
+            <button onClick={() => toggleAllSections(true)} className="px-8 py-3 font-semibold rounded-xl disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center gap-2 transition-all hover:opacity-90" style={{ background: 'linear-gradient(90deg, #1d4ed8 0%, #ff00ff 100%)', color: '#ffffff' }}>Open all sections</button>
+            <button onClick={() => toggleAllSections(false)} className="px-8 py-3 font-semibold rounded-xl disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center gap-2 transition-all hover:opacity-90" style={{ background: 'linear-gradient(90deg, #1d4ed8 0%, #ff00ff 100%)', color: '#ffffff' }}>Collapse all sections</button>
+          </div>
+          <div className="mt-2 text-center text-sm" style={{ color: COLORS.primary }}>
+            Use this toggle to quickly expand or collapse every report block.
+          </div>
+
           {/* Multi-URL Progress */}
           {loading && totalUrls > 1 && (
             <div className="mt-5 p-4 rounded-xl" style={{ backgroundColor: `${COLORS.secondary}15` }}>
@@ -541,6 +609,33 @@ export default function SEOChecker() {
 
           {error && <div className="mt-5 p-4 bg-red-50 border border-red-200 rounded-xl flex items-start gap-3"><span className="text-red-600"><Icons.Alert /></span><span className="text-red-700">{error}</span></div>}
         </div>
+
+        {/* Saved Audit History */}
+        {auditHistory.length > 0 && (
+          <div className="bg-white rounded-2xl shadow-xl p-4 mb-6">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="font-semibold" style={{ color: COLORS.primary }}>Audit History</h2>
+              <button onClick={clearHistory} className="text-sm px-3 py-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700">Clear history</button>
+            </div>
+            <div className="space-y-2 max-h-56 overflow-auto">
+              {auditHistory.map((entry, i) => (
+                <button
+                  key={`${entry.url}-${entry.timestamp}-${i}`}
+                  onClick={() => loadHistoryEntry(entry)}
+                  className="w-full text-left p-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="truncate">
+                      <div className="font-medium text-sm truncate" style={{ color: COLORS.primary }}>{entry.url}</div>
+                      <div className="text-xs text-gray-500">{new Date(entry.timestamp).toLocaleString()}</div>
+                    </div>
+                    <span className="px-2 py-1 rounded text-xs font-semibold text-white" style={{ backgroundColor: getScoreColor(entry.score) }}>{entry.score}/100</span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Multi-URL Results Selector */}
         {multiResults.length > 1 && (
@@ -606,6 +701,7 @@ export default function SEOChecker() {
                   const brokenInternal = results.links.brokenInternalList?.length || 0;
                   const brokenExternal = results.links.brokenExternalList?.length || 0;
                   const brokenCount = emptyHrefs + brokenInternal + brokenExternal;
+                  const redirectedCount = results.links.redirectList?.length || 0;
                   return (
                     <div className="p-6 bg-gray-50 rounded-xl">
                       <h3 className="font-semibold text-gray-800 mb-4">Links Distribution</h3>
@@ -614,11 +710,13 @@ export default function SEOChecker() {
                           { label: 'Internal', value: results.links.internal, color: COLORS.accent },
                           { label: 'External', value: results.links.external, color: COLORS.secondary },
                           { label: 'Broken', value: brokenCount, color: '#ef4444' },
+                          { label: 'Redirected', value: redirectedCount, color: '#f97316' },
                         ]} size={100} />
                         <div className="space-y-2 text-sm">
                           <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full" style={{ backgroundColor: COLORS.accent }} /><span>Internal: {results.links.internal}</span></div>
                           <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full" style={{ backgroundColor: COLORS.secondary }} /><span>External: {results.links.external}</span></div>
                           <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-red-500" /><span>Broken: {brokenCount}</span></div>
+                          <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-orange-500" /><span>Redirected: {redirectedCount}</span></div>
                         </div>
                       </div>
                     </div>
@@ -642,6 +740,7 @@ export default function SEOChecker() {
                 <button onClick={() => exportData('json')} className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg flex items-center gap-2 text-sm"><Icons.Download /> Export JSON</button>
                 <button onClick={() => exportData('csv')} className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg flex items-center gap-2 text-sm"><Icons.Download /> Export CSV</button>
                 <button onClick={() => exportData('html')} className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg flex items-center gap-2 text-sm"><Icons.Download /> Export HTML</button>
+                <button onClick={() => exportData('pdf')} className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg flex items-center gap-2 text-sm"><Icons.Download /> Export PDF</button>
               </div>
             </Section>
 
@@ -676,6 +775,19 @@ export default function SEOChecker() {
                                     'Fix or remove this link'
                                   }
                                 </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Show redirect links list (301/302) */}
+                        {issue.id === 'redirect-links' && results.links.redirectList && results.links.redirectList.length > 0 && (
+                          <div className="mt-2 p-2 bg-white/30 rounded text-xs space-y-2">
+                            <div className="font-medium">Redirected Links (301/302):</div>
+                            {results.links.redirectList.slice(0, 8).map((link: { href: string; text: string; status: number; location: string }, j: number) => (
+                              <div key={j} className="p-2 bg-white/40 rounded border-l-2 border-orange-500">
+                                <code className="block bg-gray-800 text-orange-300 p-2 rounded text-xs overflow-x-auto whitespace-pre-wrap break-all">{`<a href="${link.href}">${link.text || '(no text)'}<\/a>`}</code>
+                                <div className="mt-1 text-orange-700">HTTP {link.status} → {link.location}</div>
                               </div>
                             ))}
                           </div>
@@ -1446,14 +1558,16 @@ export default function SEOChecker() {
                 const emptyBroken = results.links.brokenList || [];
                 const brokenInternal = results.links.brokenInternalList || [];
                 const brokenExternal = results.links.brokenExternalList || [];
+                const redirectedLinks = results.links.redirectList || [];
                 const totalBrokenCount = emptyBroken.length + brokenInternal.length + brokenExternal.length;
                 return (
                   <>
-                    <div className="grid grid-cols-2 md:grid-cols-6 gap-4 mt-4">
+                    <div className="grid grid-cols-2 md:grid-cols-7 gap-4 mt-4">
                       <div className="text-center p-4 rounded-lg" style={{ backgroundColor: `${COLORS.primary}10` }}><div className="text-2xl font-bold" style={{ color: COLORS.primary }}>{results.links.total}</div><div className="text-sm text-gray-600">Total</div></div>
                       <div className="text-center p-4 bg-green-50 rounded-lg"><div className="text-2xl font-bold text-green-700">{results.links.internal}</div><div className="text-sm text-green-600">Internal</div></div>
                       <div className="text-center p-4 rounded-lg" style={{ backgroundColor: `${COLORS.secondary}15` }}><div className="text-2xl font-bold" style={{ color: COLORS.primary }}>{results.links.external}</div><div className="text-sm text-gray-600">External</div></div>
                       <div className={`text-center p-4 rounded-lg ${totalBrokenCount > 0 ? 'bg-red-50' : 'bg-gray-50'}`}><div className={`text-2xl font-bold ${totalBrokenCount > 0 ? 'text-red-700' : 'text-gray-700'}`}>{totalBrokenCount}</div><div className="text-sm text-gray-600">Broken</div></div>
+                      <div className={`text-center p-4 rounded-lg ${redirectedLinks.length > 0 ? 'bg-orange-50' : 'bg-gray-50'}`}><div className={`text-2xl font-bold ${redirectedLinks.length > 0 ? 'text-orange-700' : 'text-gray-700'}`}>{redirectedLinks.length}</div><div className="text-sm text-gray-600">Redirected</div></div>
                       <div className={`text-center p-4 rounded-lg ${results.links.genericAnchors > 0 ? 'bg-yellow-50' : 'bg-gray-50'}`}><div className={`text-2xl font-bold ${results.links.genericAnchors > 0 ? 'text-yellow-700' : 'text-gray-700'}`}>{results.links.genericAnchors}</div><div className="text-sm text-gray-600">Generic</div></div>
                       <div className="text-center p-4 bg-gray-50 rounded-lg"><div className="text-2xl font-bold text-gray-700">{results.links.nofollow}</div><div className="text-sm text-gray-600">Nofollow</div></div>
                     </div>
@@ -1495,6 +1609,28 @@ export default function SEOChecker() {
                           <div key={i} className="text-sm">
                             <a href={link.href} target="_blank" rel="noopener noreferrer" className="hover:underline break-all" style={{ color: COLORS.primary }}>{link.href}</a>
                             {link.text && <span className="text-gray-500 ml-2">({link.text})</span>}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </details>
+                </div>
+              )}
+
+              {/* Redirected Links (301/302) */}
+              {results.links.redirectList && results.links.redirectList.length > 0 && (
+                <div className="mt-4">
+                  <details className="group" open>
+                    <summary className="cursor-pointer font-medium text-orange-800 hover:text-orange-600">
+                      Redirected Links ({results.links.redirectList.length}) <span className="text-gray-400 text-sm">click to expand/collapse</span>
+                    </summary>
+                    <div className="mt-2 p-4 bg-orange-50 border border-orange-200 rounded-lg max-h-64 overflow-auto">
+                      <div className="space-y-2">
+                        {results.links.redirectList.map((link: { href: string; text?: string; status: number; location: string }, i: number) => (
+                          <div key={`redirect-${i}`} className="p-2 bg-white rounded text-sm border border-orange-100">
+                            <code className="text-orange-700 break-all">{link.href}</code>
+                            {link.text && <span className="text-gray-500 ml-2">- {link.text}</span>}
+                            <div className="text-xs text-orange-600 mt-1">HTTP {link.status} → {link.location}</div>
                           </div>
                         ))}
                       </div>
@@ -1848,8 +1984,17 @@ export default function SEOChecker() {
       </div>
 
       {/* Footer */}
-      <div className="text-center py-8 text-white/60 text-sm">
-        SEO Audit Tool • Complete Technical & On-Page Analysis • {new Date().getFullYear()}
+      <div className="py-8 flex flex-col items-center gap-4">
+        <a
+          href="https://www.web-seo.pro/en/contact-us/" target="_blank" rel="noopener noreferrer"
+          className="inline-flex items-center gap-2 px-5 py-2.5 font-bold transition-opacity hover:opacity-90"
+          style={{ background: 'linear-gradient(90deg, #1d4ed8 0%, #ff00ff 100%)', color: '#ffffff', borderRadius: '25px' }}
+        >
+          Book your SEO optimisation consultation
+        </a>
+        <div className="text-center text-white/60 text-sm">
+          SEO Audit Tool • Complete Technical & On-Page Analysis • {new Date().getFullYear()}
+        </div>
       </div>
     </div>
   );
