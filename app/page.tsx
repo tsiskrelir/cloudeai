@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 
 // Types matching the updated audit system
 interface AuditIssue {
@@ -312,6 +312,7 @@ export default function SEOChecker() {
   const [multiResults, setMultiResults] = useState<AuditResult[]>([]);
   const [currentUrlIndex, setCurrentUrlIndex] = useState(0);
   const [totalUrls, setTotalUrls] = useState(0);
+  const [auditHistory, setAuditHistory] = useState<AuditResult[]>([]);
 
   const allSections = ['overview', 'issues', 'passed', 'sitemap', 'technical', 'content', 'security', 'international', 'links', 'images', 'schema', 'social', 'platform', 'accessibility', 'dom', 'performance', 'ai', 'trust', 'mobile', 'robots', 'loaded-files'];
   const imageList = results?.images.imageList || [];
@@ -361,6 +362,7 @@ export default function SEOChecker() {
         setMultiResults(results);
         setResults(results[0]); // Show first result by default
         setExpanded(allSections.reduce((acc, s) => ({ ...acc, [s]: true }), {}));
+        saveToHistory(results);
       } else {
         // HTML mode - single page
         const res = await fetch('/api/audit', {
@@ -373,6 +375,7 @@ export default function SEOChecker() {
         setResults(data);
         setMultiResults([data]);
         setExpanded(allSections.reduce((acc, s) => ({ ...acc, [s]: true }), {}));
+        saveToHistory([data]);
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'An error occurred');
@@ -459,6 +462,43 @@ export default function SEOChecker() {
     setExpanded(allSections.reduce((acc, sectionId) => ({ ...acc, [sectionId]: expandAll }), {}));
   };
 
+  const saveToHistory = (items: AuditResult[]) => {
+    if (!items.length) return;
+    setAuditHistory((prev) => {
+      const merged = [...items, ...prev].filter((item, index, arr) =>
+        index === arr.findIndex((x) => x.url === item.url && x.timestamp === item.timestamp)
+      ).slice(0, 25);
+      localStorage.setItem('seo-audit-history', JSON.stringify(merged));
+      return merged;
+    });
+  };
+
+  const loadHistoryEntry = (entry: AuditResult) => {
+    setResults(entry);
+    setMultiResults([entry]);
+    toggleAllSections(true);
+    setError('');
+  };
+
+  const clearHistory = () => {
+    setAuditHistory([]);
+    localStorage.removeItem('seo-audit-history');
+  };
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('seo-audit-history');
+      if (raw) {
+        const parsed = JSON.parse(raw) as AuditResult[];
+        if (Array.isArray(parsed)) {
+          setAuditHistory(parsed.slice(0, 25));
+        }
+      }
+    } catch {
+      setAuditHistory([]);
+    }
+  }, []);
+
   const getScoreColor = (s: number) => s >= 90 ? '#10b981' : s >= 70 ? '#f59e0b' : s >= 50 ? '#f97316' : '#ef4444';
   const getSeverityStyle = (sev: string) => ({ critical: 'bg-red-100 text-red-800 border-red-200', high: 'bg-orange-100 text-orange-800 border-orange-200', medium: 'bg-yellow-100 text-yellow-800 border-yellow-200', low: 'bg-blue-100 text-blue-800 border-blue-200' }[sev] || 'bg-gray-100');
   const getSeverityLabel = (sev: string) => ({ critical: 'Critical', high: 'High', medium: 'Medium', low: 'Low' }[sev] || sev);
@@ -486,11 +526,13 @@ export default function SEOChecker() {
         <div className="max-w-6xl mx-auto px-6 py-6">
           <div className="grid grid-cols-[auto_1fr_auto] items-center gap-4">
             <div className="flex items-center justify-start">
-              <img
-                src="https://www.web-seo.pro/wp-content/uploads/2024/07/webseologo.png"
-                alt="Web & SEO logo"
-                className="w-16 h-16 object-contain"
-              />
+              <a href="https://www.web-seo.pro/" target="_blank" rel="noopener noreferrer" aria-label="Web & SEO homepage">
+                <img
+                  src="https://www.web-seo.pro/wp-content/uploads/2024/07/webseologo.png"
+                  alt="Web & SEO logo"
+                  className="w-16 h-16 object-contain"
+                />
+              </a>
             </div>
             <div className="text-center">
               <h1 className="text-3xl font-bold" style={{ color: COLORS.primary }}>SEO Audit Tool</h1>
@@ -545,8 +587,8 @@ export default function SEOChecker() {
           )}
 
           <div className="mt-4 flex justify-center gap-3">
-            <button onClick={() => toggleAllSections(true)} className="px-4 py-2 rounded-lg font-medium text-sm transition-opacity hover:opacity-90" style={{ background: 'linear-gradient(90deg, #1d4ed8 0%, #ff00ff 100%)', color: '#ffffff' }}>Open all sections</button>
-            <button onClick={() => toggleAllSections(false)} className="px-4 py-2 rounded-lg font-medium text-sm transition-opacity hover:opacity-90" style={{ background: 'linear-gradient(90deg, #1d4ed8 0%, #ff00ff 100%)', color: '#ffffff' }}>Collapse all sections</button>
+            <button onClick={() => toggleAllSections(true)} className="px-8 py-3 font-semibold rounded-xl disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center gap-2 transition-all hover:opacity-90" style={{ background: 'linear-gradient(90deg, #1d4ed8 0%, #ff00ff 100%)', color: '#ffffff' }}>Open all sections</button>
+            <button onClick={() => toggleAllSections(false)} className="px-8 py-3 font-semibold rounded-xl disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center gap-2 transition-all hover:opacity-90" style={{ background: 'linear-gradient(90deg, #1d4ed8 0%, #ff00ff 100%)', color: '#ffffff' }}>Collapse all sections</button>
           </div>
           <div className="mt-2 text-center text-sm" style={{ color: COLORS.primary }}>
             Use this toggle to quickly expand or collapse every report block.
@@ -567,6 +609,33 @@ export default function SEOChecker() {
 
           {error && <div className="mt-5 p-4 bg-red-50 border border-red-200 rounded-xl flex items-start gap-3"><span className="text-red-600"><Icons.Alert /></span><span className="text-red-700">{error}</span></div>}
         </div>
+
+        {/* Saved Audit History */}
+        {auditHistory.length > 0 && (
+          <div className="bg-white rounded-2xl shadow-xl p-4 mb-6">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="font-semibold" style={{ color: COLORS.primary }}>Audit History</h2>
+              <button onClick={clearHistory} className="text-sm px-3 py-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700">Clear history</button>
+            </div>
+            <div className="space-y-2 max-h-56 overflow-auto">
+              {auditHistory.map((entry, i) => (
+                <button
+                  key={`${entry.url}-${entry.timestamp}-${i}`}
+                  onClick={() => loadHistoryEntry(entry)}
+                  className="w-full text-left p-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="truncate">
+                      <div className="font-medium text-sm truncate" style={{ color: COLORS.primary }}>{entry.url}</div>
+                      <div className="text-xs text-gray-500">{new Date(entry.timestamp).toLocaleString()}</div>
+                    </div>
+                    <span className="px-2 py-1 rounded text-xs font-semibold text-white" style={{ backgroundColor: getScoreColor(entry.score) }}>{entry.score}/100</span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Multi-URL Results Selector */}
         {multiResults.length > 1 && (
@@ -1917,9 +1986,9 @@ export default function SEOChecker() {
       {/* Footer */}
       <div className="py-8 flex flex-col items-center gap-4">
         <a
-          href="mailto:tsiskrelir@gmail.com"
-          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg font-bold transition-opacity hover:opacity-90"
-          style={{ background: 'linear-gradient(90deg, #1d4ed8 0%, #ff00ff 100%)', color: '#ffffff' }}
+          href="https://www.web-seo.pro/en/contact-us/" target="_blank" rel="noopener noreferrer"
+          className="inline-flex items-center gap-2 px-5 py-2.5 font-bold transition-opacity hover:opacity-90"
+          style={{ background: 'linear-gradient(90deg, #1d4ed8 0%, #ff00ff 100%)', color: '#ffffff', borderRadius: '25px' }}
         >
           Book your SEO optimisation consultation
         </a>
