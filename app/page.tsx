@@ -426,6 +426,8 @@ export default function SEOChecker() {
           return '';
         }
       }).join('\n');
+      const exportNode = reportEl.cloneNode(true) as HTMLElement;
+      exportNode.querySelectorAll('[data-export-exclude="true"]').forEach((node) => node.remove());
       const html = `<!doctype html>
 <html lang="en">
 <head>
@@ -438,7 +440,7 @@ export default function SEOChecker() {
   </style>
 </head>
 <body>
-  ${reportEl.outerHTML}
+  ${exportNode.outerHTML}
 </body>
 </html>`;
       if (format === 'pdf') {
@@ -485,6 +487,21 @@ export default function SEOChecker() {
     localStorage.removeItem('seo-audit-history');
   };
 
+  const createShareLink = (audit: AuditResult) => {
+    const payload = btoa(unescape(encodeURIComponent(JSON.stringify(audit))));
+    return `${window.location.origin}${window.location.pathname}?audit=${encodeURIComponent(payload)}`;
+  };
+
+  const copyShareLink = async (audit: AuditResult) => {
+    try {
+      const link = createShareLink(audit);
+      await navigator.clipboard.writeText(link);
+      setError('');
+    } catch {
+      setError('Could not copy share link. Please copy it manually from browser address bar.');
+    }
+  };
+
   useEffect(() => {
     try {
       const raw = localStorage.getItem('seo-audit-history');
@@ -496,6 +513,23 @@ export default function SEOChecker() {
       }
     } catch {
       setAuditHistory([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const shared = params.get('audit');
+      if (!shared) return;
+      const parsed = JSON.parse(decodeURIComponent(escape(atob(shared)))) as AuditResult;
+      if (parsed && parsed.url && typeof parsed.score === 'number') {
+        setResults(parsed);
+        setMultiResults([parsed]);
+        toggleAllSections(true);
+        saveToHistory([parsed]);
+      }
+    } catch {
+      // Ignore invalid shared payloads
     }
   }, []);
 
@@ -545,7 +579,7 @@ export default function SEOChecker() {
 
       <div className="max-w-6xl mx-auto px-6 py-8">
         {/* Input */}
-        <div className="bg-white rounded-2xl shadow-xl p-6 mb-8">
+        <div className="bg-white rounded-2xl shadow-xl p-6 mb-8" data-export-exclude="true">
           <div className="flex gap-3 mb-5">
             <button onClick={() => { setInputMode('url'); setResults(null); setError(''); }} className="px-5 py-2.5 rounded-lg font-medium flex items-center gap-2 transition-all" style={inputMode === 'url' ? { backgroundColor: COLORS.primary, color: COLORS.accent } : { backgroundColor: '#f3f4f6', color: '#4b5563' }}><Icons.Globe /> By URL</button>
             <button onClick={() => { setInputMode('html'); setResults(null); setError(''); }} className="px-5 py-2.5 rounded-lg font-medium flex items-center gap-2 transition-all" style={inputMode === 'html' ? { backgroundColor: COLORS.primary, color: COLORS.accent } : { backgroundColor: '#f3f4f6', color: '#4b5563' }}><Icons.Code /> Paste HTML</button>
@@ -612,26 +646,35 @@ export default function SEOChecker() {
 
         {/* Saved Audit History */}
         {auditHistory.length > 0 && (
-          <div className="bg-white rounded-2xl shadow-xl p-4 mb-6">
+          <div className="bg-white rounded-2xl shadow-xl p-4 mb-6" data-export-exclude="true">
             <div className="flex items-center justify-between mb-3">
               <h2 className="font-semibold" style={{ color: COLORS.primary }}>Audit History</h2>
               <button onClick={clearHistory} className="text-sm px-3 py-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700">Clear history</button>
             </div>
             <div className="space-y-2 max-h-56 overflow-auto">
               {auditHistory.map((entry, i) => (
-                <button
-                  key={`${entry.url}-${entry.timestamp}-${i}`}
-                  onClick={() => loadHistoryEntry(entry)}
-                  className="w-full text-left p-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors"
-                >
+                <div key={`${entry.url}-${entry.timestamp}-${i}`} className="w-full p-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors">
                   <div className="flex items-center justify-between gap-3">
-                    <div className="truncate">
+                    <button
+                      type="button"
+                      onClick={() => loadHistoryEntry(entry)}
+                      className="text-left flex-1 min-w-0"
+                    >
                       <div className="font-medium text-sm truncate" style={{ color: COLORS.primary }}>{entry.url}</div>
                       <div className="text-xs text-gray-500">{new Date(entry.timestamp).toLocaleString()}</div>
+                    </button>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => copyShareLink(entry)}
+                        className="px-2 py-1 rounded text-xs bg-gray-100 hover:bg-gray-200 text-gray-700"
+                      >
+                        Copy link
+                      </button>
+                      <span className="px-2 py-1 rounded text-xs font-semibold text-white" style={{ backgroundColor: getScoreColor(entry.score) }}>{entry.score}/100</span>
                     </div>
-                    <span className="px-2 py-1 rounded text-xs font-semibold text-white" style={{ backgroundColor: getScoreColor(entry.score) }}>{entry.score}/100</span>
                   </div>
-                </button>
+                </div>
               ))}
             </div>
           </div>
@@ -741,6 +784,7 @@ export default function SEOChecker() {
                 <button onClick={() => exportData('csv')} className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg flex items-center gap-2 text-sm"><Icons.Download /> Export CSV</button>
                 <button onClick={() => exportData('html')} className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg flex items-center gap-2 text-sm"><Icons.Download /> Export HTML</button>
                 <button onClick={() => exportData('pdf')} className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg flex items-center gap-2 text-sm"><Icons.Download /> Export PDF</button>
+                <button onClick={() => copyShareLink(results)} className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg flex items-center gap-2 text-sm"><Icons.Link /> Copy Share Link</button>
               </div>
             </Section>
 
