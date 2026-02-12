@@ -871,6 +871,17 @@ export interface AuditResult {
   eeat: EEATData;
   serverResponse: ServerResponseData;
 
+  searchIndex?: SearchIndexData;
+
   issues: AuditIssue[];
   passed: string[];
+}
+
+/* ============================================================================
+ * SEARCH ENGINE INDEX CHECK
+ * ========================================================================== */
+
+export interface SearchIndexData {
+  google: { indexed: boolean; checkedAt: string; error?: string };
+  bing: { indexed: boolean; checkedAt: string; error?: string };
 }

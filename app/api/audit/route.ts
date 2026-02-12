@@ -18,17 +18,29 @@ import {
   checkHttpsRedirect,
   validateSitemapUrls,
   analyzeUrlSeoFriendliness,
-  buildSiteTree
+  buildSiteTree,
+  checkSearchIndexStatus
 } from '@/lib/fetch/fetchHtml';
 
 // Rate limiting
 const rateLimits = new Map<string, { count: number; ts: number }>();
+const RATE_WINDOW_MS = 60000;
+const MAX_REQUESTS = 30;
+const MAX_HTML_SIZE = 10 * 1024 * 1024; // 10MB max HTML payload
 
 function checkRate(ip: string): boolean {
   const now = Date.now();
+
+  // Periodic cleanup: remove stale entries to prevent unbounded memory growth
+  if (rateLimits.size > 1000) {
+    for (const [key, value] of rateLimits) {
+      if (now - value.ts > RATE_WINDOW_MS) rateLimits.delete(key);
+    }
+  }
+
   const r = rateLimits.get(ip);
-  if (!r || now - r.ts > 60000) { rateLimits.set(ip, { count: 1, ts: now }); return true; }
-  if (r.count >= 30) return false;
+  if (!r || now - r.ts > RATE_WINDOW_MS) { rateLimits.set(ip, { count: 1, ts: now }); return true; }
+  if (r.count >= MAX_REQUESTS) return false;
   r.count++;
   return true;
 }
@@ -40,10 +52,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Rate limit exceeded. Please wait 1 minute.' }, { status: 429 });
     }
     
-    const { url, html: providedHtml } = await request.json();
-    
+    const body = await request.json();
+    const { url, html: providedHtml } = body;
+
     if (!url && !providedHtml) {
       return NextResponse.json({ error: 'URL or HTML is required' }, { status: 400 });
+    }
+
+    // Prevent memory exhaustion from oversized HTML payloads
+    if (providedHtml && typeof providedHtml === 'string' && providedHtml.length > MAX_HTML_SIZE) {
+      return NextResponse.json({ error: `HTML payload too large (max ${MAX_HTML_SIZE / 1024 / 1024}MB)` }, { status: 413 });
     }
     
     let html: string;
@@ -143,8 +161,8 @@ export async function POST(request: NextRequest) {
           paginationLinks.forEach(addLink);
           internalLinks.forEach(addLink);
 
-          const maxInternalChecks = 15;
-          const linksToCheck = prioritizedLinks.slice(0, Math.max(maxInternalChecks, paginationLinks.length));
+          const maxInternalChecks = 20;
+          const linksToCheck = prioritizedLinks.slice(0, maxInternalChecks);
           const redirectResults = await checkLinksForRedirects(linksToCheck, 5);
 
           if (redirectResults.length > 0) {
@@ -484,8 +502,68 @@ export async function POST(request: NextRequest) {
           }
         }
 
-      } catch {}
+        // Check if page is indexed in Google and Bing
+        try {
+          const indexStatus = await checkSearchIndexStatus(finalUrl);
+          result.searchIndex = indexStatus;
+
+          if (!indexStatus.google.indexed && !indexStatus.google.error) {
+            result.issues.push({
+              id: 'not-indexed-google',
+              severity: 'high' as const,
+              category: 'Indexing',
+              issue: 'Page not found in Google index',
+              issueGe: 'Page not found in Google index',
+              location: finalUrl,
+              fix: 'Submit URL via Google Search Console and ensure page is crawlable',
+              fixGe: 'Submit URL via Google Search Console and ensure page is crawlable',
+              details: 'High priority. Page does not appear in Google search results for site: query. This may indicate the page is not indexed. Verify in Google Search Console.'
+            });
+          } else if (indexStatus.google.indexed) {
+            result.passed.push('Indexed in Google ✓');
+          }
+
+          if (!indexStatus.bing.indexed && !indexStatus.bing.error) {
+            result.issues.push({
+              id: 'not-indexed-bing',
+              severity: 'medium' as const,
+              category: 'Indexing',
+              issue: 'Page not found in Bing index',
+              issueGe: 'Page not found in Bing index',
+              location: finalUrl,
+              fix: 'Submit URL via Bing Webmaster Tools',
+              fixGe: 'Submit URL via Bing Webmaster Tools',
+              details: 'Medium priority. Page does not appear in Bing search results. Submit via Bing Webmaster Tools for faster indexing.'
+            });
+          } else if (indexStatus.bing.indexed) {
+            result.passed.push('Indexed in Bing ✓');
+          }
+        } catch (indexError) {
+          console.warn('[Audit] Search index check failed:', indexError instanceof Error ? indexError.message : indexError);
+        }
+
+      } catch (enrichError) {
+        // Log but don't fail the entire audit — the core result is still valid
+        console.warn('[Audit] Post-audit enrichment partially failed:', enrichError instanceof Error ? enrichError.message : enrichError);
+      }
     }
+
+    // Recalculate score after all enrichment issues have been added
+    let score = 100;
+    result.issues.forEach((i: { severity: string }) => {
+      switch (i.severity) { case 'critical': score -= 15; break; case 'high': score -= 8; break; case 'medium': score -= 4; break; case 'low': score -= 1; break; }
+    });
+    score += Math.min(10, result.passed.length * 0.5);
+    result.score = Math.max(0, Math.min(100, Math.round(score)));
+    result.summary = {
+      ...result.summary,
+      criticalIssues: result.issues.filter((i: { severity: string }) => i.severity === 'critical').length,
+      highIssues: result.issues.filter((i: { severity: string }) => i.severity === 'high').length,
+      mediumIssues: result.issues.filter((i: { severity: string }) => i.severity === 'medium').length,
+      lowIssues: result.issues.filter((i: { severity: string }) => i.severity === 'low').length,
+      totalChecks: result.issues.length + result.passed.length,
+      passedChecks: result.passed.length,
+    };
 
     return NextResponse.json(result);
   } catch (error) {
