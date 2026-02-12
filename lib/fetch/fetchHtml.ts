@@ -37,15 +37,39 @@ export function validateUrl(
     if (!['http:', 'https:'].includes(p.protocol)) {
       return { valid: false, error: 'URL must be http or https' };
     }
-    if (
-      ['localhost', '127.0.0.1', '::1'].includes(p.hostname)
-    ) {
-      return { valid: false, error: 'Local URLs are blocked' };
+    if (isPrivateOrReservedHost(p.hostname)) {
+      return { valid: false, error: 'Local/private URLs are blocked' };
     }
     return { valid: true };
   } catch {
     return { valid: false, error: 'Invalid URL format' };
   }
+}
+
+function isPrivateOrReservedHost(hostname: string): boolean {
+  const host = hostname.replace(/^\[|\]$/g, '').toLowerCase();
+
+  if (host === 'localhost' || host === '::1' || host === '0.0.0.0') return true;
+
+  // IPv4 private/reserved ranges
+  const ipv4Match = host.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+  if (ipv4Match) {
+    const [, a, b] = ipv4Match.map(Number);
+    if (a === 127) return true;                          // 127.0.0.0/8 loopback
+    if (a === 10) return true;                           // 10.0.0.0/8 private
+    if (a === 172 && b >= 16 && b <= 31) return true;    // 172.16.0.0/12 private
+    if (a === 192 && b === 168) return true;             // 192.168.0.0/16 private
+    if (a === 169 && b === 254) return true;             // 169.254.0.0/16 link-local/cloud metadata
+    if (a === 0) return true;                            // 0.0.0.0/8
+  }
+
+  // IPv4-mapped IPv6 (::ffff:127.0.0.1, ::ffff:10.0.0.1, etc.)
+  const mappedMatch = host.match(/^::ffff:(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})$/);
+  if (mappedMatch) {
+    return isPrivateOrReservedHost(mappedMatch[1]);
+  }
+
+  return false;
 }
 
 // --------------------
@@ -690,9 +714,9 @@ export async function checkWwwRedirect(baseUrl: string): Promise<{
     const wwwAccessible = wwwResult && wwwResult.status >= 200 && wwwResult.status < 400;
     const nonWwwAccessible = nonWwwResult && nonWwwResult.status >= 200 && nonWwwResult.status < 400;
 
-    // Check redirect destinations
-    const wwwRedirectsToNonWww = wwwRedirects && wwwResult?.headers.location?.includes(nonWwwHost) || false;
-    const nonWwwRedirectsToWww = nonWwwRedirects && nonWwwResult?.headers.location?.includes(wwwHost) || false;
+    // Check redirect destinations (explicit grouping to avoid precedence ambiguity)
+    const wwwRedirectsToNonWww = Boolean(wwwRedirects && wwwResult?.headers.location?.includes(nonWwwHost));
+    const nonWwwRedirectsToWww = Boolean(nonWwwRedirects && nonWwwResult?.headers.location?.includes(wwwHost));
 
     let preferredVersion: 'www' | 'non-www' | 'unknown' = 'unknown';
     let issue: string | undefined;
@@ -745,7 +769,7 @@ export async function checkHttpsRedirect(baseUrl: string): Promise<{
     ]);
 
     const httpRedirects = httpResult && httpResult.status >= 300 && httpResult.status < 400;
-    const httpRedirectsToHttps = httpRedirects && httpResult?.headers.location?.startsWith('https://') || false;
+    const httpRedirectsToHttps = Boolean(httpRedirects && httpResult?.headers.location?.startsWith('https://'));
     const httpsAccessible = httpsResult && httpsResult.status >= 200 && httpsResult.status < 400;
     const httpAccessible = httpResult && httpResult.status >= 200 && httpResult.status < 400;
 
@@ -1257,5 +1281,107 @@ export async function checkRedirectChain(url: string, maxRedirects = 10): Promis
     chain,
     hasLoop,
     finalUrl: currentUrl,
+  };
+}
+
+// --------------------
+// Search Engine Index Check (Google & Bing)
+// --------------------
+
+export async function checkSearchIndexStatus(
+  url: string
+): Promise<{
+  google: { indexed: boolean; checkedAt: string; error?: string };
+  bing: { indexed: boolean; checkedAt: string; error?: string };
+}> {
+  const checkedAt = new Date().toISOString();
+  const encodedUrl = encodeURIComponent(url);
+
+  const checkGoogle = async (): Promise<{ indexed: boolean; error?: string }> => {
+    try {
+      // Google search for site:url - if results exist, page is indexed
+      const searchUrl = `https://www.google.com/search?q=site:${encodedUrl}&num=1`;
+      const res = await requestUrl({
+        url: searchUrl,
+        timeout: 10000,
+        method: 'GET',
+        readBody: true,
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept': 'text/html,application/xhtml+xml',
+          'Accept-Language': 'en-US,en;q=0.9',
+        },
+      });
+
+      if (res.status === 429 || res.status === 503) {
+        return { indexed: false, error: 'Rate limited by Google — try again later' };
+      }
+
+      if (res.status === 200 && res.body) {
+        const body = res.body.toLowerCase();
+        // Google shows "did not match any documents" when nothing is indexed
+        const noResults =
+          body.includes('did not match any documents') ||
+          body.includes('no results found') ||
+          body.includes('your search -') && body.includes('- did not match');
+
+        if (noResults) return { indexed: false };
+
+        // If the page URL appears in the result body, it's indexed
+        const urlHost = new URL(url).hostname.replace(/^www\./, '');
+        const hasResults = body.includes(urlHost) && !noResults;
+        return { indexed: hasResults };
+      }
+
+      return { indexed: false, error: `Unexpected status: ${res.status}` };
+    } catch (e) {
+      return { indexed: false, error: e instanceof Error ? e.message : 'Request failed' };
+    }
+  };
+
+  const checkBing = async (): Promise<{ indexed: boolean; error?: string }> => {
+    try {
+      const searchUrl = `https://www.bing.com/search?q=site:${encodedUrl}`;
+      const res = await requestUrl({
+        url: searchUrl,
+        timeout: 10000,
+        method: 'GET',
+        readBody: true,
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept': 'text/html,application/xhtml+xml',
+          'Accept-Language': 'en-US,en;q=0.9',
+        },
+      });
+
+      if (res.status === 429 || res.status === 503) {
+        return { indexed: false, error: 'Rate limited by Bing — try again later' };
+      }
+
+      if (res.status === 200 && res.body) {
+        const body = res.body.toLowerCase();
+        const noResults =
+          body.includes('no results found') ||
+          body.includes('there are no results for') ||
+          body.includes('no results found for');
+
+        if (noResults) return { indexed: false };
+
+        const urlHost = new URL(url).hostname.replace(/^www\./, '');
+        const hasResults = body.includes(urlHost) && !noResults;
+        return { indexed: hasResults };
+      }
+
+      return { indexed: false, error: `Unexpected status: ${res.status}` };
+    } catch (e) {
+      return { indexed: false, error: e instanceof Error ? e.message : 'Request failed' };
+    }
+  };
+
+  const [google, bing] = await Promise.all([checkGoogle(), checkBing()]);
+
+  return {
+    google: { ...google, checkedAt },
+    bing: { ...bing, checkedAt },
   };
 }

@@ -11,6 +11,7 @@ export interface RequestOptions {
   maxRedirects?: number;
   readBody?: boolean;
   maxBodySize?: number;
+  headers?: Record<string, string>;
 }
 
 export interface RequestResult {
@@ -67,7 +68,7 @@ export async function requestUrl(
         port: parsed.port || (isHttps ? 443 : 80),
         path: parsed.pathname + parsed.search,
         method,
-        headers: { ...DEFAULT_HEADERS, Host: parsed.hostname },
+        headers: { ...DEFAULT_HEADERS, ...options.headers, Host: parsed.hostname },
       },
       (res) => {
         const status = res.statusCode || 0;
