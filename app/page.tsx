@@ -332,11 +332,12 @@ export default function SEOChecker() {
         // Multi-URL support: split by newlines and filter empty
         const urls = url.split('\n').map(u => u.trim()).filter(u => u && u.startsWith('http'));
         if (urls.length === 0) {
-          throw new Error('Please enter at least one valid URL');
+          throw new Error('Please enter at least one valid URL. URL must start with http:// or https://');
         }
 
         setTotalUrls(urls.length);
-        const results: AuditResult[] = [];
+        const successfulResults: AuditResult[] = [];
+        const failedUrls: string[] = [];
 
         for (let i = 0; i < urls.length; i++) {
           setCurrentUrlIndex(i + 1);
@@ -346,23 +347,43 @@ export default function SEOChecker() {
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ url: urls[i] })
             });
-            const data = await res.json();
-            if (res.ok) {
-              results.push(data);
+
+            let data: any = null;
+            try {
+              data = await res.json();
+            } catch {
+              // Keep null and use HTTP-level details below
             }
-          } catch {
-            // Continue with next URL on error
+
+            if (res.ok && data) {
+              successfulResults.push(data as AuditResult);
+            } else {
+              const apiMessage = data?.error || data?.details || data?.message || 'No error details from API';
+              failedUrls.push(`${urls[i]} — HTTP ${res.status} ${res.statusText}. ${apiMessage}`);
+            }
+          } catch (err) {
+            const reason = err instanceof Error ? err.message : 'Unknown network error';
+            failedUrls.push(`${urls[i]} — Request failed. ${reason}`);
           }
         }
 
-        if (results.length === 0) {
-          throw new Error('Failed to analyze any URLs');
+        if (successfulResults.length === 0) {
+          const fullReason = failedUrls.length > 0
+            ? `Failed to analyze all URLs:
+${failedUrls.join('\n')}`
+            : 'Failed to analyze any URLs for an unknown reason.';
+          throw new Error(fullReason);
         }
 
-        setMultiResults(results);
-        setResults(results[0]); // Show first result by default
+        setMultiResults(successfulResults);
+        setResults(successfulResults[0]); // Show first result by default
         setExpanded(allSections.reduce((acc, s) => ({ ...acc, [s]: true }), {}));
-        saveToHistory(results);
+        saveToHistory(successfulResults);
+
+        if (failedUrls.length > 0) {
+          setError(`Some URLs could not be analyzed:
+${failedUrls.join('\n')}`);
+        }
       } else {
         // HTML mode - single page
         const res = await fetch('/api/audit', {
@@ -370,15 +391,30 @@ export default function SEOChecker() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ html: htmlInput, url })
         });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Audit failed');
-        setResults(data);
-        setMultiResults([data]);
+
+        let data: any = null;
+        try {
+          data = await res.json();
+        } catch {
+          // Keep null and report HTTP details below
+        }
+
+        if (!res.ok) {
+          const apiMessage = data?.error || data?.details || data?.message || 'No error details from API';
+          throw new Error(`Audit failed. HTTP ${res.status} ${res.statusText}. ${apiMessage}`);
+        }
+
+        if (!data) {
+          throw new Error(`Audit failed. HTTP ${res.status} ${res.statusText}. Empty response body.`);
+        }
+
+        setResults(data as AuditResult);
+        setMultiResults([data as AuditResult]);
         setExpanded(allSections.reduce((acc, s) => ({ ...acc, [s]: true }), {}));
-        saveToHistory([data]);
+        saveToHistory([data as AuditResult]);
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'An error occurred');
+      setError(e instanceof Error ? e.message : 'An unknown error occurred while running the audit.');
     } finally {
       setLoading(false);
       setCurrentUrlIndex(0);
@@ -641,7 +677,7 @@ export default function SEOChecker() {
             </div>
           )}
 
-          {error && <div className="mt-5 p-4 bg-red-50 border border-red-200 rounded-xl flex items-start gap-3"><span className="text-red-600"><Icons.Alert /></span><span className="text-red-700">{error}</span></div>}
+          {error && <div className="mt-5 p-4 bg-red-50 border border-red-200 rounded-xl flex items-start gap-3"><span className="text-red-600"><Icons.Alert /></span><span className="text-red-700 whitespace-pre-line">{error}</span></div>}
         </div>
 
         {/* Saved Audit History */}
