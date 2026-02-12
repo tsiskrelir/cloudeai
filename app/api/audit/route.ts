@@ -490,7 +490,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(result);
   } catch (error) {
     console.error('[Audit]', error);
-    return NextResponse.json({ error: 'Audit failed to complete' }, { status: 500 });
+    const message = error instanceof Error ? error.message : 'Unknown server error';
+    return NextResponse.json({
+      error: 'Audit failed to complete',
+      details: message,
+      hint: 'Check URL accessibility, robots/firewall restrictions, and server logs for the failing request.'
+    }, { status: 500 });
   }
 }
 
