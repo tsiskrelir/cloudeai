@@ -29,3 +29,6 @@ Thumbs.db
 
 # TypeScript build cache
 *.tsbuildinfo
+
+# Shared audit storage
+.shared-audits/
