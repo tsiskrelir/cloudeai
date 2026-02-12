@@ -41,7 +41,7 @@ export async function requestUrl(
     followRedirects = true,
     maxRedirects = 5,
     readBody = true,
-    maxBodySize = 2 * 1024 * 1024, // 2MB
+    maxBodySize = 5 * 1024 * 1024, // 5MB
   } = options;
 
   if (redirectCount > maxRedirects) {
