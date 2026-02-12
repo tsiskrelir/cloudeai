@@ -523,18 +523,29 @@ ${failedUrls.join('\n')}`);
     localStorage.removeItem('seo-audit-history');
   };
 
-  const createShareLink = (audit: AuditResult) => {
-    const payload = btoa(unescape(encodeURIComponent(JSON.stringify(audit))));
-    return `${window.location.origin}${window.location.pathname}?audit=${encodeURIComponent(payload)}`;
+  const createShareLink = async (audit: AuditResult) => {
+    const res = await fetch('/api/share', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ audit })
+    });
+
+    const data = await res.json().catch(() => null);
+    if (!res.ok || !data?.id) {
+      const details = data?.details || data?.error || 'Unknown error while creating share link';
+      throw new Error(`Could not create share link: ${details}`);
+    }
+
+    return `${window.location.origin}${window.location.pathname}?share=${encodeURIComponent(data.id)}`;
   };
 
   const copyShareLink = async (audit: AuditResult) => {
     try {
-      const link = createShareLink(audit);
+      const link = await createShareLink(audit);
       await navigator.clipboard.writeText(link);
       setError('');
-    } catch {
-      setError('Could not copy share link. Please copy it manually from browser address bar.');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not copy share link.');
     }
   };
 
@@ -553,20 +564,47 @@ ${failedUrls.join('\n')}`);
   }, []);
 
   useEffect(() => {
-    try {
-      const params = new URLSearchParams(window.location.search);
-      const shared = params.get('audit');
-      if (!shared) return;
-      const parsed = JSON.parse(decodeURIComponent(escape(atob(shared)))) as AuditResult;
-      if (parsed && parsed.url && typeof parsed.score === 'number') {
-        setResults(parsed);
-        setMultiResults([parsed]);
-        toggleAllSections(true);
-        saveToHistory([parsed]);
+    const loadSharedAudit = async () => {
+      try {
+        const params = new URLSearchParams(window.location.search);
+        const shareId = params.get('share');
+
+        if (shareId) {
+          const res = await fetch(`/api/share?id=${encodeURIComponent(shareId)}`);
+          const data = await res.json().catch(() => null);
+          if (!res.ok || !data?.audit) {
+            const details = data?.details || data?.error || 'Unknown error while loading shared audit';
+            setError(`Could not load shared audit: ${details}`);
+            return;
+          }
+          const parsed = data.audit as AuditResult;
+          if (parsed && parsed.url && typeof parsed.score === 'number') {
+            setResults(parsed);
+            setMultiResults([parsed]);
+            toggleAllSections(true);
+            saveToHistory([parsed]);
+            setError('');
+          }
+          return;
+        }
+
+        // Backward compatibility for older long links
+        const shared = params.get('audit');
+        if (!shared) return;
+        const parsed = JSON.parse(decodeURIComponent(escape(atob(shared)))) as AuditResult;
+        if (parsed && parsed.url && typeof parsed.score === 'number') {
+          setResults(parsed);
+          setMultiResults([parsed]);
+          toggleAllSections(true);
+          saveToHistory([parsed]);
+          setError('');
+        }
+      } catch {
+        // Ignore invalid shared payloads
       }
-    } catch {
-      // Ignore invalid shared payloads
-    }
+    };
+
+    loadSharedAudit();
   }, []);
 
   const getScoreColor = (s: number) => s >= 90 ? '#10b981' : s >= 70 ? '#f59e0b' : s >= 50 ? '#f97316' : '#ef4444';
