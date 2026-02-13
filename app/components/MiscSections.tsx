@@ -234,6 +234,159 @@ export const MobileSection = ({ results, expanded, setExpanded }: SectionProps) 
             {results.mobile.hasFlexbox || results.mobile.hasGrid ? '✓' : '–'} CSS Layout
           </span>
         </div>
+
+        {/* Fixed Width Elements */}
+        {results.mobile.fixedWidthList && results.mobile.fixedWidthList.length > 0 && (
+          <details className="mt-4">
+            <summary className="cursor-pointer text-sm font-medium text-red-800 hover:text-red-600">Fixed-width elements ({results.mobile.fixedWidthList.length})</summary>
+            <div className="mt-2 p-3 bg-red-50 rounded-lg max-h-48 overflow-auto space-y-2">
+              {results.mobile.fixedWidthList.map((el, i) => (
+                <div key={i} className="text-xs p-2 bg-white rounded border border-red-100">
+                  <code className="text-red-700">width: {el.width}</code>
+                  <span className="text-gray-500 ml-2">{el.context}</span>
+                  {el.snippet && <pre className="mt-1 text-gray-600 bg-gray-50 p-1 rounded overflow-x-auto">{el.snippet}</pre>}
+                </div>
+              ))}
+            </div>
+          </details>
+        )}
+
+        {/* Small Tap Targets Detail */}
+        {results.mobile.tapTargetsList && results.mobile.tapTargetsList.length > 0 && (
+          <details className="mt-4">
+            <summary className="cursor-pointer text-sm font-medium text-yellow-800 hover:text-yellow-600">Small tap targets ({results.mobile.tapTargetsList.length})</summary>
+            <div className="mt-2 p-3 bg-yellow-50 rounded-lg max-h-48 overflow-auto space-y-1">
+              {results.mobile.tapTargetsList.map((target, i) => (
+                <div key={i} className="text-xs text-yellow-700 flex items-center gap-2">
+                  <span className="text-yellow-600">•</span>
+                  <code className="bg-white px-1 rounded">{target.element}</code>
+                  <span className="text-gray-500">({target.size})</span>
+                </div>
+              ))}
+            </div>
+          </details>
+        )}
+
+        {/* Actionable Recommendations */}
+        <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+          <div className="font-medium text-blue-800 mb-3">Step-by-Step Mobile Optimization Guide</div>
+          <div className="space-y-3 text-sm text-blue-900">
+            {!results.mobile.hasViewport && (
+              <div className="p-3 bg-white rounded-lg border-l-3 border-red-500">
+                <div className="font-medium text-red-800">1. Add viewport meta tag (Critical)</div>
+                <p className="text-gray-600 mt-1">Add the following tag inside your <code className="bg-gray-100 px-1 rounded">&lt;head&gt;</code>:</p>
+                <pre className="mt-2 p-2 bg-gray-800 text-green-400 rounded text-xs overflow-x-auto">{`<meta name="viewport" content="width=device-width, initial-scale=1">`}</pre>
+                <p className="text-xs text-gray-500 mt-1">This tells the browser to scale the page to the device width. Without it, mobile devices render the page at desktop width (typically 980px) and zoom out.</p>
+              </div>
+            )}
+
+            {!results.mobile.hasMediaQueries && (
+              <div className="p-3 bg-white rounded-lg border-l-3 border-orange-500">
+                <div className="font-medium text-orange-800">{results.mobile.hasViewport ? '1' : '2'}. Add CSS media queries for responsive layout</div>
+                <p className="text-gray-600 mt-1">Add breakpoints to your CSS to adapt layout for different screen sizes:</p>
+                <pre className="mt-2 p-2 bg-gray-800 text-green-400 rounded text-xs overflow-x-auto">{`/* Mobile first approach */
+@media (min-width: 768px) {
+  .container { max-width: 720px; }
+  .sidebar { display: block; }
+}
+@media (min-width: 1024px) {
+  .container { max-width: 960px; }
+}`}</pre>
+                <p className="text-xs text-gray-500 mt-1">Common breakpoints: 480px (small phone), 768px (tablet), 1024px (laptop), 1280px (desktop).</p>
+              </div>
+            )}
+
+            {results.mobile.smallTapTargets > 0 && (
+              <div className="p-3 bg-white rounded-lg border-l-3 border-yellow-500">
+                <div className="font-medium text-yellow-800">Fix small tap targets ({results.mobile.smallTapTargets} found)</div>
+                <p className="text-gray-600 mt-1">All interactive elements (buttons, links, inputs) should be at least <strong>48x48px</strong> (Google&apos;s recommendation). Add padding to increase the tap area:</p>
+                <pre className="mt-2 p-2 bg-gray-800 text-green-400 rounded text-xs overflow-x-auto">{`/* Make links/buttons at least 48px tall */
+a, button { min-height: 48px; padding: 12px 16px; }
+
+/* Add spacing between close targets */
+nav a { margin: 4px 0; }`}</pre>
+              </div>
+            )}
+
+            {results.mobile.horizontalScrollRisk && (
+              <div className="p-3 bg-white rounded-lg border-l-3 border-red-500">
+                <div className="font-medium text-red-800">Fix horizontal scrolling</div>
+                <p className="text-gray-600 mt-1">Elements wider than the viewport cause horizontal scroll. Common fixes:</p>
+                <pre className="mt-2 p-2 bg-gray-800 text-green-400 rounded text-xs overflow-x-auto">{`/* Prevent overflow */
+html, body { overflow-x: hidden; }
+img, video, table { max-width: 100%; height: auto; }
+
+/* Replace fixed widths */
+.container { width: 100%; max-width: 1200px; /* instead of width: 1200px */ }`}</pre>
+              </div>
+            )}
+
+            {results.mobile.fixedWidthElements > 0 && (
+              <div className="p-3 bg-white rounded-lg border-l-3 border-orange-500">
+                <div className="font-medium text-orange-800">Convert fixed widths to responsive ({results.mobile.fixedWidthElements} elements)</div>
+                <p className="text-gray-600 mt-1">Replace pixel-based widths with percentage or max-width:</p>
+                <pre className="mt-2 p-2 bg-gray-800 text-green-400 rounded text-xs overflow-x-auto">{`/* Instead of: */
+.element { width: 800px; }
+
+/* Use: */
+.element { width: 100%; max-width: 800px; }`}</pre>
+              </div>
+            )}
+
+            {(results.mobile.responsiveImagesCount || 0) < (results.mobile.totalImages || 0) && (results.mobile.totalImages || 0) > 0 && (
+              <div className="p-3 bg-white rounded-lg border-l-3 border-blue-500">
+                <div className="font-medium text-blue-800">Make images responsive ({results.mobile.responsiveImagesCount || 0}/{results.mobile.totalImages || 0} responsive)</div>
+                <p className="text-gray-600 mt-1">Use <code className="bg-gray-100 px-1 rounded">srcset</code> and <code className="bg-gray-100 px-1 rounded">sizes</code> for responsive images:</p>
+                <pre className="mt-2 p-2 bg-gray-800 text-green-400 rounded text-xs overflow-x-auto">{`<img
+  src="image-800.jpg"
+  srcset="image-400.jpg 400w, image-800.jpg 800w, image-1200.jpg 1200w"
+  sizes="(max-width: 768px) 100vw, 800px"
+  alt="Description"
+  loading="lazy"
+/>`}</pre>
+              </div>
+            )}
+
+            {!results.mobile.hasManifest && (
+              <div className="p-3 bg-white rounded-lg border-l-3 border-gray-400">
+                <div className="font-medium text-gray-800">Add Web App Manifest (PWA)</div>
+                <p className="text-gray-600 mt-1">Create a <code className="bg-gray-100 px-1 rounded">manifest.json</code> in your root directory and link it in <code className="bg-gray-100 px-1 rounded">&lt;head&gt;</code>:</p>
+                <pre className="mt-2 p-2 bg-gray-800 text-green-400 rounded text-xs overflow-x-auto">{`<!-- In <head> -->
+<link rel="manifest" href="/manifest.json">
+
+// manifest.json
+{
+  "name": "Your Site Name",
+  "short_name": "Site",
+  "start_url": "/",
+  "display": "standalone",
+  "theme_color": "#1d4ed8",
+  "background_color": "#ffffff",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}`}</pre>
+              </div>
+            )}
+
+            {!results.mobile.hasThemeColor && (
+              <div className="p-3 bg-white rounded-lg border-l-3 border-gray-400">
+                <div className="font-medium text-gray-800">Add theme color</div>
+                <p className="text-gray-600 mt-1">Set the browser address bar color on mobile:</p>
+                <pre className="mt-2 p-2 bg-gray-800 text-green-400 rounded text-xs overflow-x-auto">{`<meta name="theme-color" content="#1d4ed8">`}</pre>
+              </div>
+            )}
+
+            {!results.mobile.hasAppleTouchIcon && (
+              <div className="p-3 bg-white rounded-lg border-l-3 border-gray-400">
+                <div className="font-medium text-gray-800">Add Apple Touch Icon</div>
+                <p className="text-gray-600 mt-1">For iOS home screen bookmarks, add a 180x180px PNG icon:</p>
+                <pre className="mt-2 p-2 bg-gray-800 text-green-400 rounded text-xs overflow-x-auto">{`<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">`}</pre>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </Section>
   );
@@ -509,27 +662,94 @@ export const PlatformSection = ({ results, expanded, setExpanded }: SectionProps
 );
 
 /* ─── AI Content ─────────────────────────────────────────────────────── */
+const AI_SUPPORTED_LANGS = ['en'];
+const getAiScoreLabel = (score: number) => score >= 75 ? 'Very likely AI-generated' : score >= 50 ? 'Likely AI-generated' : score >= 30 ? 'Possibly AI-assisted' : 'Minimal AI indicators';
+const getAiScoreExplanation = (score: number, phraseCount: number) => {
+  if (score >= 75) return `This content has a very high concentration of AI-typical phrases (${phraseCount} detected). The writing style strongly resembles outputs from large language models (ChatGPT, Claude, etc.). Consider rewriting in a more natural, human voice to improve authenticity and search engine perception.`;
+  if (score >= 50) return `Multiple AI-typical phrases were detected (${phraseCount}). The text uses patterns commonly associated with AI content — overuse of transitional phrases like "moreover", "furthermore", and filler expressions like "it is important to note". Consider editing to add personal perspective, specific examples, and a more conversational tone.`;
+  if (score >= 30) return `Some AI-typical phrases were found (${phraseCount}). This could indicate AI assistance in drafting or a formal writing style that overlaps with AI patterns. The content reads mostly natural but has some telltale signs. Minor edits could make the tone more authentic.`;
+  return `Very few AI indicators found (${phraseCount}). The content appears predominantly human-written. Some common phrases were detected, but these also occur naturally in human writing.`;
+};
+
 export const AiContentSection = ({ results, expanded, setExpanded }: SectionProps) => {
-  if (results.content.aiScore <= 20) return null;
+  const detectedLang = results.content.detectedLanguage || 'en';
+  const isSupported = AI_SUPPORTED_LANGS.includes(detectedLang);
+  const langNames: Record<string, string> = { en: 'English', de: 'German', es: 'Spanish', ru: 'Russian', ka: 'Georgian' };
+
+  // Always show section (even if score is 0) so users see the language support note
   return (
-    <Section title="AI Content Analysis" icon={Icons.Brain} id="ai" expanded={expanded} setExpanded={setExpanded}>
+    <Section title="AI Content Analysis" icon={Icons.Brain} id="ai" expanded={expanded} setExpanded={setExpanded}
+      badge={isSupported ? (
+        <span className={`px-2 py-0.5 rounded-full text-sm ${results.content.aiScore >= 50 ? 'bg-red-100 text-red-700' : results.content.aiScore >= 30 ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700'}`}>{results.content.aiScore}%</span>
+      ) : undefined}
+    >
       <div className="mt-4">
-        <div className="flex items-center gap-4">
-          <div className="relative">
-            <DonutChart value={results.content.aiScore} size={80} strokeWidth={8} color={results.content.aiScore > 50 ? '#ef4444' : '#f59e0b'} />
-            <div className="absolute inset-0 flex items-center justify-center">
-              <span className="text-xl font-bold">{results.content.aiScore}%</span>
+        {!isSupported ? (
+          <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="flex items-start gap-3">
+              <span className="text-blue-600 mt-0.5"><Icons.Alert /></span>
+              <div>
+                <div className="font-medium text-blue-800">AI Detection Not Available for {langNames[detectedLang] || detectedLang}</div>
+                <div className="text-sm text-blue-700 mt-1">
+                  AI content detection is currently supported only for <strong>English</strong> language content. The detected content language is <strong>{langNames[detectedLang] || detectedLang}</strong>, so AI detection results would not be reliable for this page.
+                </div>
+                <div className="text-xs text-blue-600 mt-2">
+                  AI phrase detection works by identifying patterns commonly used by large language models (e.g., &quot;delve into&quot;, &quot;it is important to note&quot;, &quot;in today&apos;s digital landscape&quot;). These patterns are language-specific and currently calibrated for English only.
+                </div>
+              </div>
             </div>
           </div>
-          <div>
-            <div className="font-medium text-gray-800">AI Content Indicator</div>
-            <div className="text-sm text-gray-500">High value indicates AI-generated content</div>
-          </div>
-        </div>
-        {results.content.aiPhrases.length > 0 && (
-          <div className="mt-3 text-sm text-gray-600">
-            Found phrases: {results.content.aiPhrases.slice(0, 5).join(', ')}{results.content.aiPhrases.length > 5 && ` +${results.content.aiPhrases.length - 5}`}
-          </div>
+        ) : (
+          <>
+            <div className="flex items-center gap-6">
+              <div className="relative">
+                <DonutChart value={results.content.aiScore} size={100} strokeWidth={10} color={results.content.aiScore >= 75 ? '#ef4444' : results.content.aiScore >= 50 ? '#f97316' : results.content.aiScore >= 30 ? '#f59e0b' : '#10b981'} />
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <span className="text-2xl font-bold">{results.content.aiScore}%</span>
+                </div>
+              </div>
+              <div>
+                <div className={`text-lg font-medium ${results.content.aiScore >= 50 ? 'text-red-700' : results.content.aiScore >= 30 ? 'text-yellow-700' : 'text-green-700'}`}>
+                  {getAiScoreLabel(results.content.aiScore)}
+                </div>
+                <div className="text-sm text-gray-500 mt-1">{results.content.aiPhrases.length} AI-typical phrase{results.content.aiPhrases.length !== 1 ? 's' : ''} detected</div>
+              </div>
+            </div>
+
+            {/* Explanation */}
+            <div className={`mt-4 p-4 rounded-lg border ${results.content.aiScore >= 50 ? 'bg-red-50 border-red-200' : results.content.aiScore >= 30 ? 'bg-yellow-50 border-yellow-200' : 'bg-green-50 border-green-200'}`}>
+              <div className="text-sm font-medium mb-1" style={{ color: results.content.aiScore >= 50 ? '#b91c1c' : results.content.aiScore >= 30 ? '#92400e' : '#15803d' }}>Why does the text look {results.content.aiScore >= 50 ? 'AI-generated' : results.content.aiScore >= 30 ? 'AI-assisted' : 'human-written'}?</div>
+              <div className="text-sm text-gray-700">{getAiScoreExplanation(results.content.aiScore, results.content.aiPhrases.length)}</div>
+            </div>
+
+            {/* Detected Phrases */}
+            {results.content.aiPhrases.length > 0 && (
+              <div className="mt-4">
+                <div className="text-sm font-medium text-gray-700 mb-2">Detected AI-typical phrases:</div>
+                <div className="flex flex-wrap gap-2">
+                  {results.content.aiPhrases.map((phrase, i) => (
+                    <span key={i} className="px-3 py-1.5 bg-gray-100 border border-gray-200 rounded-full text-sm text-gray-700">{phrase}</span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* How scoring works */}
+            <details className="mt-4">
+              <summary className="cursor-pointer text-sm font-medium text-gray-600 hover:text-gray-800">How AI detection scoring works</summary>
+              <div className="mt-2 p-3 bg-gray-50 rounded-lg text-sm text-gray-600 space-y-2">
+                <p>The AI detection score is calculated by scanning page content for phrases and patterns commonly overused by large language models (LLMs) like ChatGPT, Claude, and others.</p>
+                <p>Each detected AI-typical phrase adds <strong>5 points per occurrence</strong> to the score (capped at 100%). The phrases include overused transitions (&quot;moreover&quot;, &quot;furthermore&quot;), filler expressions (&quot;it is important to note&quot;, &quot;in today&apos;s digital landscape&quot;), and buzzwords (&quot;leverage&quot;, &quot;streamline&quot;, &quot;game-changer&quot;).</p>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-2">
+                  <div className="p-2 bg-green-50 rounded text-center"><div className="font-bold text-green-700">0-29%</div><div className="text-xs">Human-written</div></div>
+                  <div className="p-2 bg-yellow-50 rounded text-center"><div className="font-bold text-yellow-700">30-49%</div><div className="text-xs">Possibly AI-assisted</div></div>
+                  <div className="p-2 bg-orange-50 rounded text-center"><div className="font-bold text-orange-700">50-74%</div><div className="text-xs">Likely AI-generated</div></div>
+                  <div className="p-2 bg-red-50 rounded text-center"><div className="font-bold text-red-700">75-100%</div><div className="text-xs">Very likely AI</div></div>
+                </div>
+                <p className="text-xs text-gray-500 mt-2"><strong>Note:</strong> This is a heuristic indicator, not a definitive classifier. Formal academic writing may score higher due to similar vocabulary patterns. The score helps identify content that may benefit from a more natural, conversational tone.</p>
+              </div>
+            </details>
+          </>
         )}
       </div>
     </Section>
