@@ -11,6 +11,7 @@ import { AuditForm } from './components/AuditForm';
 import { AuditHistory } from './components/AuditHistory';
 import { ScoreOverview } from './components/ScoreOverview';
 import { IssuesList } from './components/IssuesList';
+import { ComparisonView } from './components/ComparisonView';
 import { PassedChecks } from './components/PassedChecks';
 import { SitemapSection } from './components/SitemapSection';
 import { ContentSection } from './components/ContentSection';
@@ -36,7 +37,7 @@ import {
 export default function SEOChecker() {
   const [url, setUrl] = useState('');
   const [htmlInput, setHtmlInput] = useState('');
-  const [inputMode, setInputMode] = useState<'url' | 'html'>('url');
+  const [inputMode, setInputMode] = useState<'url' | 'html' | 'sitemap'>('url');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [results, setResults] = useState<AuditResult | null>(null);
@@ -48,6 +49,21 @@ export default function SEOChecker() {
   const [currentUrlIndex, setCurrentUrlIndex] = useState(0);
   const [totalUrls, setTotalUrls] = useState(0);
   const [auditHistory, setAuditHistory] = useState<AuditResult[]>([]);
+
+  // Ignore list — global, by issue ID
+  const [ignoredIssues, setIgnoredIssues] = useState<string[]>([]);
+
+  // Comparison
+  const [compareItems, setCompareItems] = useState<AuditResult[]>([]);
+
+  // PDF generation loading state
+  const [pdfLoading, setPdfLoading] = useState(false);
+
+  // Sitemap crawler state
+  const [sitemapUrl, setSitemapUrl] = useState('');
+  const [sitemapLoading, setSitemapLoading] = useState(false);
+  const [sitemapStatus, setSitemapStatus] = useState('');
+  const [foundSitemapUrls, setFoundSitemapUrls] = useState<string[]>([]);
 
   const toggleAllSections = (expandAll: boolean) => {
     setExpanded(ALL_SECTIONS.reduce((acc, sectionId) => ({ ...acc, [sectionId]: expandAll }), {}));
@@ -161,7 +177,7 @@ export default function SEOChecker() {
     }
   }, []);
 
-  const exportData = (format: 'json' | 'csv' | 'html' | 'pdf') => {
+  const exportData = (format: 'json' | 'csv' | 'html') => {
     if (!results) return;
     if (format === 'json') {
       const blob = new Blob([JSON.stringify(results, null, 2)], { type: 'application/json' });
@@ -201,20 +217,9 @@ export default function SEOChecker() {
   ${exportNode.outerHTML}
 </body>
 </html>`;
-      if (format === 'pdf') {
-        const printWindow = window.open('', '_blank');
-        if (!printWindow) return;
-        printWindow.document.write(html);
-        printWindow.document.close();
-        printWindow.focus();
-        setTimeout(() => {
-          printWindow.print();
-        }, 300);
-      } else {
-        const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
-        const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-        a.download = `seo-audit-${new Date().toISOString().split('T')[0]}.html`; a.click();
-      }
+      const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+      a.download = `seo-audit-${new Date().toISOString().split('T')[0]}.html`; a.click();
     }
   };
 
@@ -250,6 +255,108 @@ export default function SEOChecker() {
     localStorage.removeItem('seo-audit-history');
   };
 
+  // Ignore list
+  const toggleIgnoreIssue = (issueId: string) => {
+    setIgnoredIssues(prev => {
+      const next = prev.includes(issueId) ? prev.filter(id => id !== issueId) : [...prev, issueId];
+      try { localStorage.setItem('seo-audit-ignored', JSON.stringify(next)); } catch { /* quota */ }
+      return next;
+    });
+  };
+
+  // Comparison
+  const toggleCompare = (entry: AuditResult) => {
+    setCompareItems(prev => {
+      const exists = prev.find(c => c.url === entry.url && c.timestamp === entry.timestamp);
+      if (exists) return prev.filter(c => c !== exists);
+      if (prev.length >= 2) return [prev[1], entry]; // replace oldest
+      return [...prev, entry];
+    });
+  };
+
+  // PDF export (lazy-loads @react-pdf/renderer to avoid SSR issues)
+  const exportPdf = async (result: AuditResult) => {
+    setPdfLoading(true);
+    try {
+      const [{ pdf }, { PdfReport }] = await Promise.all([
+        import('@react-pdf/renderer'),
+        import('./components/PdfReport'),
+      ]);
+      const blob = await pdf(PdfReport({ result }) as React.ReactElement).toBlob();
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `seo-audit-${new Date().toISOString().split('T')[0]}.pdf`;
+      a.click();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'PDF generation failed');
+    } finally {
+      setPdfLoading(false);
+    }
+  };
+
+  // Bulk CSV — one row per history entry
+  const exportBulkCsv = () => {
+    if (auditHistory.length === 0) return;
+    const header = ['URL', 'Score', 'Date', 'Critical', 'High', 'Medium', 'Low', 'Total Checks', 'Passed'];
+    const rows = auditHistory.map(e => [
+      e.url,
+      String(e.score),
+      new Date(e.timestamp).toLocaleString(),
+      String(e.summary.criticalIssues),
+      String(e.summary.highIssues),
+      String(e.summary.mediumIssues),
+      String(e.summary.lowIssues),
+      String(e.summary.totalChecks),
+      String(e.summary.passedChecks),
+    ]);
+    const csv = [header, ...rows].map(r => r.map(c => `"${c.replace(/"/g, '""')}"`).join(',')).join('\n');
+    const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `seo-audit-history-${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+  };
+
+  // Sitemap crawler
+  const handleSitemapFetch = async () => {
+    if (!sitemapUrl) return;
+    setSitemapLoading(true);
+    setSitemapStatus('');
+    setFoundSitemapUrls([]);
+    try {
+      const res = await fetch('/api/sitemap', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: sitemapUrl }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.urls) {
+        setSitemapStatus(`Error: ${data?.error || 'Failed to fetch sitemap'}`);
+        return;
+      }
+      setFoundSitemapUrls(data.urls);
+      setSitemapStatus(
+        data.truncated
+          ? `Found ${data.total} URLs — showing first ${data.urls.length}. Click "Audit URLs" to analyze.`
+          : `Found ${data.urls.length} URL${data.urls.length !== 1 ? 's' : ''}. Click "Audit URLs" to analyze.`
+      );
+    } catch (e) {
+      setSitemapStatus(`Error: ${e instanceof Error ? e.message : 'Unknown error'}`);
+    } finally {
+      setSitemapLoading(false);
+    }
+  };
+
+  const handleSitemapAnalyze = useCallback(() => {
+    if (foundSitemapUrls.length === 0) return;
+    const validUrls = foundSitemapUrls.filter(u => u.startsWith('http'));
+    if (validUrls.length === 0) return;
+    setUrl(validUrls.join('\n'));
+    setInputMode('url');
+    // handleAnalyze reads from state; invoke after state updates settle via a short timeout
+    setTimeout(handleAnalyze, 50);
+  }, [foundSitemapUrls, handleAnalyze]);
+
   const createShareLink = async (audit: AuditResult) => {
     const res = await fetch('/api/share', {
       method: 'POST',
@@ -281,13 +388,18 @@ export default function SEOChecker() {
       const raw = localStorage.getItem('seo-audit-history');
       if (raw) {
         const parsed = JSON.parse(raw) as AuditResult[];
-        if (Array.isArray(parsed)) {
-          setAuditHistory(parsed.slice(0, 25));
-        }
+        if (Array.isArray(parsed)) setAuditHistory(parsed.slice(0, 25));
       }
     } catch {
       setAuditHistory([]);
     }
+    try {
+      const raw = localStorage.getItem('seo-audit-ignored');
+      if (raw) {
+        const parsed = JSON.parse(raw) as string[];
+        if (Array.isArray(parsed)) setIgnoredIssues(parsed);
+      }
+    } catch { /* ignore */ }
   }, []);
 
   useEffect(() => {
@@ -372,6 +484,11 @@ export default function SEOChecker() {
           setResults={() => setResults(null)}
           setError={setError}
           handleDrop={handleDrop}
+          sitemapUrl={sitemapUrl} setSitemapUrl={setSitemapUrl}
+          sitemapLoading={sitemapLoading} sitemapStatus={sitemapStatus}
+          foundSitemapUrls={foundSitemapUrls}
+          handleSitemapFetch={handleSitemapFetch}
+          handleSitemapAnalyze={handleSitemapAnalyze}
         />
 
         {/* Audit History */}
@@ -380,7 +497,19 @@ export default function SEOChecker() {
           clearHistory={clearHistory}
           loadHistoryEntry={loadHistoryEntry}
           copyShareLink={copyShareLink}
+          exportBulkCsv={exportBulkCsv}
+          compareItems={compareItems}
+          toggleCompare={toggleCompare}
         />
+
+        {/* Comparison View */}
+        {compareItems.length === 2 && (
+          <ComparisonView
+            a={compareItems[0]}
+            b={compareItems[1]}
+            onClose={() => setCompareItems([])}
+          />
+        )}
 
         {/* Multi-URL Results Selector */}
         {multiResults.length > 1 && (
@@ -408,8 +537,8 @@ export default function SEOChecker() {
         {/* Results */}
         {results && (
           <div className="space-y-6">
-            <ScoreOverview results={results} expanded={expanded} setExpanded={setExpanded} exportData={exportData} copyShareLink={copyShareLink} />
-            <IssuesList results={results} expanded={expanded} setExpanded={setExpanded} />
+            <ScoreOverview results={results} expanded={expanded} setExpanded={setExpanded} exportData={exportData} exportPdf={exportPdf} pdfLoading={pdfLoading} copyShareLink={copyShareLink} />
+            <IssuesList results={results} expanded={expanded} setExpanded={setExpanded} ignoredIssues={ignoredIssues} toggleIgnoreIssue={toggleIgnoreIssue} />
             <PassedChecks results={results} expanded={expanded} setExpanded={setExpanded} />
             <SitemapSection results={results} expanded={expanded} setExpanded={setExpanded} />
             <ContentSection results={results} expanded={expanded} setExpanded={setExpanded} />
