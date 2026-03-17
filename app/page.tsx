@@ -224,7 +224,16 @@ export default function SEOChecker() {
       const merged = [...items, ...prev].filter((item, index, arr) =>
         index === arr.findIndex((x) => x.url === item.url && x.timestamp === item.timestamp)
       ).slice(0, 25);
-      localStorage.setItem('seo-audit-history', JSON.stringify(merged));
+      // Try storing progressively fewer items if quota is exceeded
+      let stored = false;
+      for (let limit = merged.length; limit > 0 && !stored; limit = Math.floor(limit / 2)) {
+        try {
+          localStorage.setItem('seo-audit-history', JSON.stringify(merged.slice(0, limit)));
+          stored = true;
+        } catch {
+          // QuotaExceededError — retry with fewer items
+        }
+      }
       return merged;
     });
   };

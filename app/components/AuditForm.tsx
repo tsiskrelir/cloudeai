@@ -40,7 +40,7 @@ export const AuditForm = ({
       <div>
         <div className="flex gap-3">
           <div className="flex-1 relative">
-            <div className="absolute left-4 top-1/2 -translate-y-1/2" style={{ color: COLORS.secondary }}><Icons.Globe /></div>
+            <div className="absolute left-4 top-3" style={{ color: COLORS.secondary }}><Icons.Globe /></div>
             <textarea
               value={url}
               onChange={(e) => setUrl(e.target.value)}
