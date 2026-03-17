@@ -11,11 +11,13 @@ interface ScoreOverviewProps {
   results: AuditResult;
   expanded: Record<string, boolean>;
   setExpanded: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
-  exportData: (format: 'json' | 'csv' | 'html' | 'pdf') => void;
+  exportData: (format: 'json' | 'csv' | 'html') => void;
+  exportPdf: (result: AuditResult) => Promise<void>;
+  pdfLoading: boolean;
   copyShareLink: (audit: AuditResult) => void;
 }
 
-export const ScoreOverview = ({ results, expanded, setExpanded, exportData, copyShareLink }: ScoreOverviewProps) => {
+export const ScoreOverview = ({ results, expanded, setExpanded, exportData, exportPdf, pdfLoading, copyShareLink }: ScoreOverviewProps) => {
   const emptyHrefs = results.links.brokenList?.length || 0;
   const brokenInternal = results.links.brokenInternalList?.length || 0;
   const brokenExternal = results.links.brokenExternalList?.length || 0;
@@ -85,11 +87,19 @@ export const ScoreOverview = ({ results, expanded, setExpanded, exportData, copy
       </div>
 
       {/* Export Buttons */}
-      <div className="flex gap-2 mt-6">
+      <div className="flex flex-wrap gap-2 mt-6">
         <button onClick={() => exportData('json')} className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg flex items-center gap-2 text-sm"><Icons.Download /> Export JSON</button>
         <button onClick={() => exportData('csv')} className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg flex items-center gap-2 text-sm"><Icons.Download /> Export CSV</button>
         <button onClick={() => exportData('html')} className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg flex items-center gap-2 text-sm"><Icons.Download /> Export HTML</button>
-        <button onClick={() => exportData('pdf')} className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg flex items-center gap-2 text-sm"><Icons.Download /> Export PDF</button>
+        <button
+          onClick={() => exportPdf(results)}
+          disabled={pdfLoading}
+          className="px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-semibold disabled:opacity-60 disabled:cursor-not-allowed transition-all"
+          style={{ backgroundColor: COLORS.primary, color: COLORS.accent }}
+        >
+          {pdfLoading ? <Icons.Loader /> : <Icons.Download />}
+          {pdfLoading ? 'Generating PDF…' : 'Export PDF'}
+        </button>
         <button onClick={() => copyShareLink(results)} className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg flex items-center gap-2 text-sm"><Icons.Link /> Copy Share Link</button>
       </div>
     </Section>
